@@ -2841,8 +2841,8 @@ const handleSaveTest = async () => {
                 <textarea
                   placeholder="Explain the correct answer"
                   rows={3}
-                  value={currentQuestion.explanation}
-                  onChange={(e) => setCurrentQuestion((q) => ({ ...q, explanation: e.target.value }))}
+                  value={currentQuestion.solution}
+                  onChange={(e) => setCurrentQuestion((q) => ({ ...q, solution: e.target.value }))}
                 />
 
                 <button
