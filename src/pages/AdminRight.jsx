@@ -1006,8 +1006,8 @@ const processQuestion = async (q) => {
       const image = isString
         ? null
         : opt?.image
-          ? await uploadFileToBackend(opt.image, "options")
-          : null;
+        ? await uploadFileToBackend(opt.image, "options")
+        : null;
       return { text, image };
     })
   );
@@ -1016,7 +1016,7 @@ const processQuestion = async (q) => {
     question: q.text || "",
     questionImages: questionImageUrls.length > 0 ? questionImageUrls : ["NO_QUESTION_IMAGE"],
 
-    solution: q.solutionText || "", // ✅ use solutionText
+    solution: q.solutionText || "", // ✅ fix: use solutionText
     solutionImages: solutionImageUrls.length > 0 ? solutionImageUrls : ["NO_SOLUTION_IMAGE"],
 
     option1: processedOptions[0].text,
@@ -1038,7 +1038,7 @@ const processQuestion = async (q) => {
 // 🔹 Add a new question with solutionText
 const createNewQuestion = () => ({
   text: "",
-  solutionText: "",      // ✅ important for saving solution
+  solutionText: "", // ✅ important for saving solution
   questionImages: [],
   solutionImages: [],
   options: ["", "", "", ""],
@@ -1047,18 +1047,6 @@ const createNewQuestion = () => ({
   cols: 1,
   tableData: [],
 });
-
-// 🔹 Bind solution input in your form
-/*
-<input
-  type="text"
-  placeholder="Enter solution"
-  value={currentQuestion.solutionText || ""}
-  onChange={(e) =>
-    setCurrentQuestion({ ...currentQuestion, solutionText: e.target.value })
-  }
-/>
-*/
 
 // 🔹 Debugging: check solutionText before saving
 console.log(
@@ -1128,7 +1116,7 @@ const handleSaveTest = async () => {
       tableData: [],
       showMatches: false,
       tableEditable: false,
-      solutionText: "",  // ✅ reset solution
+      solutionText: "", // ✅ reset solutionText
     });
   } catch (err) {
     console.error("⚠️ Submission failed:", err);
