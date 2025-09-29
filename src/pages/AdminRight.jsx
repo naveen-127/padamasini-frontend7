@@ -1036,6 +1036,7 @@ const processQuestion = async (q) => {
     tableData: q.tableData || [],
   };
 };
+ console.log("Current solutionText values for all questions:", questions.map(q => q.solutionText));
 
 // 🔹 Save Test Handler
 const handleSaveTest = async () => {
