@@ -986,20 +986,16 @@ const uploadFileToBackend = async (file, folderName = "uploads") => {
 // 🔹 Process a single question (upload images via backend)
 const processQuestion = async (q) => {
   // ✅ Upload question images
-  let questionImageUrls =
+  const questionImageUrls =
     q.questionImages && q.questionImages.length > 0
       ? await Promise.all(q.questionImages.map((img) => uploadFileToBackend(img, "questions")))
       : [];
 
-  if (questionImageUrls.length === 0) questionImageUrls = ["NO_QUESTION_IMAGE"];
-
   // ✅ Upload solution images
-  let solutionImageUrls =
+  const solutionImageUrls =
     q.solutionImages && q.solutionImages.length > 0
       ? await Promise.all(q.solutionImages.map((img) => uploadFileToBackend(img, "solutions")))
       : [];
-
-  if (solutionImageUrls.length === 0) solutionImageUrls = ["NO_SOLUTION_IMAGE"];
 
   // ✅ Upload option images
   const processedOptions = await Promise.all(
@@ -1010,17 +1006,18 @@ const processQuestion = async (q) => {
       const image = isString
         ? null
         : opt?.image
-        ? await uploadFileToBackend(opt.image, "options")
-        : null;
+          ? await uploadFileToBackend(opt.image, "options")
+          : null;
       return { text, image };
     })
   );
 
   return {
-    question: q.text || "",
-    questionImages: questionImageUrls,
-    solution: q.solution || "",
-    solutionImages: solutionImageUrls,
+    question: q.text || "", // question text
+    questionImages: questionImageUrls.length > 0 ? questionImageUrls : ["NO_QUESTION_IMAGE"],
+
+    solution: q.solutionText || q.solution || "", // ✅ solution text
+    solutionImages: solutionImageUrls.length > 0 ? solutionImageUrls : ["NO_SOLUTION_IMAGE"],
 
     option1: processedOptions[0].text,
     option1Image: processedOptions[0].image,
@@ -1031,7 +1028,7 @@ const processQuestion = async (q) => {
     option4: processedOptions[3].text,
     option4Image: processedOptions[3].image,
 
-    correctIndex: q.correctIndex,
+    correctIndex: q.correctIndex || 0,
 
     // ✅ Include table data
     rows: q.rows || 0,
@@ -1046,37 +1043,37 @@ const handleSaveTest = async () => {
   if (!testName.trim()) return alert("Please enter a test name.");
 
   const pass = parseInt(passPercentage);
-  if (!pass || pass <= 0 || pass > 100) return alert("Pass percentage must be between 1 and 100.");
+  if (!pass || pass <= 0 || pass > 100)
+    return alert("Pass percentage must be between 1 and 100.");
   if (questions.length === 0) return alert("Add at least one question before saving the test.");
 
-  // ✅ Process all questions
-  const processedQuestions = [];
-  for (const q of questions) {
-    const processed = await processQuestion(q);
-    processedQuestions.push(processed);
-  }
-
-  const testDatas = {
-    dbname: courseName,
-    rootId: lastClicked,
-    parentId: lastClicked,
-    subjectName,
-    testName: testName.trim(),
-    unitName: selectedUnit,
-    marks: pass,
-    questionsList: processedQuestions,
-  };
-
-  console.log("🚀 Final Test Data:", JSON.stringify(testDatas, null, 2));
-
-  const url =
-    editingTestIndex === "value"
-      ? `${API_BASE_URL}/updateQuestion/${lastClicked}/${oldQuestionForDeletion}`
-      : `${API_BASE_URL}/addQuestion/${lastClicked}`;
-
-  const method = editingTestIndex === "value" ? "PUT" : "POST";
-
   try {
+    // ✅ Process all questions
+    const processedQuestions = [];
+    for (const q of questions) {
+      const processed = await processQuestion(q);
+      processedQuestions.push(processed);
+    }
+
+    const testDatas = {
+      dbname: courseName,
+      rootId: lastClicked,
+      parentId: lastClicked,
+      subjectName,
+      testName: testName.trim(),
+      unitName: selectedUnit,
+      marks: pass,
+      questionsList: processedQuestions,
+    };
+
+    console.log("🚀 Final Test Data:", JSON.stringify(testDatas, null, 2));
+
+    const url =
+      editingTestIndex === "value"
+        ? `${API_BASE_URL}/updateQuestion/${lastClicked}/${oldQuestionForDeletion}`
+        : `${API_BASE_URL}/addQuestion/${lastClicked}`;
+    const method = editingTestIndex === "value" ? "PUT" : "POST";
+
     const res = await fetch(url, {
       method,
       headers: { "Content-Type": "application/json" },
@@ -1096,7 +1093,13 @@ const handleSaveTest = async () => {
     getAllData();
     setSelectedTest(null);
     resetTestForm();
-    setCurrentQuestion({ rows: 1, cols: 1, tableData: [], showMatches: false, tableEditable: false });
+    setCurrentQuestion({
+      rows: 1,
+      cols: 1,
+      tableData: [],
+      showMatches: false,
+      tableEditable: false,
+    });
   } catch (err) {
     console.error("⚠️ Submission failed:", err);
   }
