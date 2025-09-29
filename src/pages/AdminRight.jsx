@@ -985,19 +985,19 @@ const uploadFileToBackend = async (file, folderName = "uploads") => {
 
 // 🔹 Process a single question (upload images via backend)
 const processQuestion = async (q) => {
-  // ✅ Upload question images
+  // Upload question images
   const questionImageUrls =
     q.questionImages && q.questionImages.length > 0
       ? await Promise.all(q.questionImages.map((img) => uploadFileToBackend(img, "questions")))
       : [];
 
-  // ✅ Upload solution images
+  // Upload solution images
   const solutionImageUrls =
     q.solutionImages && q.solutionImages.length > 0
       ? await Promise.all(q.solutionImages.map((img) => uploadFileToBackend(img, "solutions")))
       : [];
 
-  // ✅ Upload option images
+  // Upload option images
   const processedOptions = await Promise.all(
     [0, 1, 2, 3].map(async (i) => {
       const opt = q.options?.[i];
@@ -1013,10 +1013,10 @@ const processQuestion = async (q) => {
   );
 
   return {
-    question: q.text || "", // question text
+    question: q.text || "",
     questionImages: questionImageUrls.length > 0 ? questionImageUrls : ["NO_QUESTION_IMAGE"],
 
-    solution: q.solutionText || q.solution || "", // ✅ solution text
+    solution: q.solutionText || "", // ✅ use solutionText
     solutionImages: solutionImageUrls.length > 0 ? solutionImageUrls : ["NO_SOLUTION_IMAGE"],
 
     option1: processedOptions[0].text,
@@ -1029,14 +1029,42 @@ const processQuestion = async (q) => {
     option4Image: processedOptions[3].image,
 
     correctIndex: q.correctIndex || 0,
-
-    // ✅ Include table data
     rows: q.rows || 0,
     cols: q.cols || 0,
     tableData: q.tableData || [],
   };
 };
- console.log("Current solutionText values for all questions:", questions.map(q => q.solutionText));
+
+// 🔹 Add a new question with solutionText
+const createNewQuestion = () => ({
+  text: "",
+  solutionText: "",      // ✅ important for saving solution
+  questionImages: [],
+  solutionImages: [],
+  options: ["", "", "", ""],
+  correctIndex: 0,
+  rows: 1,
+  cols: 1,
+  tableData: [],
+});
+
+// 🔹 Bind solution input in your form
+/*
+<input
+  type="text"
+  placeholder="Enter solution"
+  value={currentQuestion.solutionText || ""}
+  onChange={(e) =>
+    setCurrentQuestion({ ...currentQuestion, solutionText: e.target.value })
+  }
+/>
+*/
+
+// 🔹 Debugging: check solutionText before saving
+console.log(
+  "Current solutionText values for all questions:",
+  questions.map((q) => q.solutionText)
+);
 
 // 🔹 Save Test Handler
 const handleSaveTest = async () => {
@@ -1100,6 +1128,7 @@ const handleSaveTest = async () => {
       tableData: [],
       showMatches: false,
       tableEditable: false,
+      solutionText: "",  // ✅ reset solution
     });
   } catch (err) {
     console.error("⚠️ Submission failed:", err);
