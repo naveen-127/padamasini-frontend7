@@ -764,307 +764,134 @@ const AdminRight = () => {
   // };
 
   
-  // const API_BASE_URL2 = `${API_BASE_URL}/api`;
+  const API_BASE_URL2 = `${API_BASE_URL}/api`;
 
-  // // 🔹 Upload file to S3
-  // const uploadFileToS3 = async (file, folderName = "uploads") => {
-  //   if (!file) return null;
+  // 🔹 Upload file to S3
+  const uploadFileToS3 = async (file, folderName = "uploads") => {
+    if (!file) return null;
 
-  //   const fileName = encodeURIComponent(`${folderName}/${file.name}`);
-  //   const fileType = encodeURIComponent(file.type);
+    const fileName = encodeURIComponent(`${folderName}/${file.name}`);
+    const fileType = encodeURIComponent(file.type);
 
-  //   console.log("====================================");
-  //   console.log("📂 Folder Name:", folderName);
-  //   console.log("📝 File Name:", file.name);
-  //   console.log("🏷️ File Type:", file.type);
-  //   console.log("====================================");
+    console.log("====================================");
+    console.log("📂 Folder Name:", folderName);
+    console.log("📝 File Name:", file.name);
+    console.log("🏷️ File Type:", file.type);
+    console.log("====================================");
 
-  //   const res = await fetch(
-  //     `${API_BASE_URL2}/image/presigned-url-image?folderPath=${folderName}&fileName=${fileName}&fileType=${fileType}`
-  //   );
-
-  //   if (!res.ok) {
-  //     console.error("❌ Failed to get presigned URL:", await res.text());
-  //     return null;
-  //   }
-
-  //   const { uploadUrl, fileUrl } = await res.json();
-  //   console.log("✅ Presigned URL generated:", fileUrl);
-
-  //   const uploadRes = await fetch(uploadUrl, {
-  //     method: "PUT",
-  //     headers: { "Content-Type": file.type },
-  //     body: file,
-  //   });
-
-  //   if (uploadRes.ok) {
-  //     console.log("✅ Successfully uploaded:", fileUrl);
-  //     return fileUrl;
-  //   } else {
-  //     console.error("❌ Upload failed for", file.name);
-  //     return null;
-  //   }
-  // };
-
-  // // 🔹 Process a single question (including table)
-  // const processQuestion = async (q) => {
-  //   // ✅ Upload multiple question images
-  //   let questionImageUrls =
-  //     q.questionImages && q.questionImages.length > 0
-  //       ? await Promise.all(q.questionImages.map((img) => uploadFileToS3(img, "questions")))
-  //       : [];
-
-  //   if (questionImageUrls.length === 0) {
-  //     questionImageUrls = ["NO_QUESTION_IMAGE"];
-  //   }
-
-  //   // ✅ Upload multiple solution images
-  //   let solutionImageUrls =
-  //     q.solutionImages && q.solutionImages.length > 0
-  //       ? await Promise.all(q.solutionImages.map((img) => uploadFileToS3(img, "solutions")))
-  //       : [];
-
-  //   if (solutionImageUrls.length === 0) {
-  //     solutionImageUrls = ["NO_SOLUTION_IMAGE"];
-  //   }
-
-  //   // ✅ Process options
-  //   const processedOptions = await Promise.all(
-  //     [0, 1, 2, 3].map(async (i) => {
-  //       const opt = q.options?.[i];
-  //       const isString = typeof opt === "string";
-
-  //       const text = isString ? opt : opt?.text || `Option ${i + 1}`;
-  //       const image = isString
-  //         ? null
-  //         : opt?.image
-  //           ? await uploadFileToS3(opt.image, "options")
-  //           : null;
-
-  //       return { text, image };
-  //     })
-  //   );
-
-  //   return {
-  //     question: q.text || "",
-  //     questionImages: questionImageUrls,
-  //     solution: q.solution || "",
-  //     solutionImages: solutionImageUrls,
-
-  //     option1: processedOptions[0].text,
-  //     option1Image: processedOptions[0].image,
-  //     option2: processedOptions[1].text,
-  //     option2Image: processedOptions[1].image,
-  //     option3: processedOptions[2].text,
-  //     option3Image: processedOptions[2].image,
-  //     option4: processedOptions[3].text,
-  //     option4Image: processedOptions[3].image,
-
-  //     correctIndex: q.correctIndex,
-
-  //     // ✅ Include Table Data
-  //     rows: q.rows || 0,
-  //     cols: q.cols || 0,
-  //     tableData: q.tableData || [],
-  //   };
-  // };
-
-  // // 🔹 Save Test Handler
-  // const handleSaveTest = async () => {
-  //   if (!selectedUnit) {
-  //     alert("Please select a lesson before saving the test.");
-  //     return;
-  //   }
-
-  //   if (!testName.trim()) {
-  //     alert("Please enter a test name.");
-  //     return;
-  //   }
-
-  //   const pass = parseInt(passPercentage);
-  //   if (!pass || pass <= 0 || pass > 100) {
-  //     alert("Pass percentage must be between 1 and 100.");
-  //     return;
-  //   }
-
-  //   if (questions.length === 0) {
-  //     alert("Add at least one question before saving the test.");
-  //     return;
-  //   }
-
-  //   // ✅ Process all questions
-  //   const processedQuestions = [];
-  //   for (const q of questions) {
-  //     const processed = await processQuestion(q);
-  //     processedQuestions.push(processed);
-  //   }
-
-  //   const testDatas = {
-  //     dbname: courseName,
-  //     rootId: lastClicked,
-  //     parentId: lastClicked,
-  //     subjectName,
-  //     testName: testName.trim(),
-  //     unitName: selectedUnit,
-  //     marks: pass,
-  //     questionsList: processedQuestions,
-  //   };
-
-  //   console.log("🚀 Final Test Data:", JSON.stringify(testDatas, null, 2));
-
-  //   const url =
-  //     editingTestIndex === "value"
-  //       ? `${API_BASE_URL}/updateQuestion/${lastClicked}/${oldQuestionForDeletion}`
-  //       : `${API_BASE_URL}/addQuestion/${lastClicked}`;
-
-  //   const method = editingTestIndex === "value" ? "PUT" : "POST";
-
-  //   try {
-  //     const res = await fetch(url, {
-  //       method,
-  //       headers: { "Content-Type": "application/json" },
-  //       body: JSON.stringify(testDatas),
-  //     });
-
-  //     if (!res.ok) {
-  //       const errorMsg = await res.text();
-  //       console.error("❌ Backend error:", errorMsg);
-  //       throw new Error(`❌ Failed to save test: ${res.status}`);
-  //     }
-
-  //     const data = await res.json();
-  //     console.log("✅ Test submitted:", data);
-
-  //     // ✅ Reset UI (including table)
-  //     getAllData();
-  //     setSelectedTest(null);
-  //     resetTestForm();
-
-  //     // Reset table for next question
-  //     setCurrentQuestion({
-  //       rows: 1,
-  //       cols: 1,
-  //       tableData: [],
-  //       showMatches: false,
-  //       tableEditable: false,
-  //     });
-  //   } catch (err) {
-  //     console.error("⚠️ Submission failed:", err);
-  //   }
-  // };
-
-const API_BASE_URL2 = `${API_BASE_URL}/api`;
-
-// 🔹 Upload file via backend (no CORS issues)
-const uploadFileToBackend = async (file, folderName = "uploads") => {
-  if (!file) return null;
-
-  const formData = new FormData();
-  formData.append("file", file);
-  formData.append("folderName", folderName);
-
-  try {
-    const res = await fetch(`${API_BASE_URL2}/image/upload`, {
-      method: "POST",
-      body: formData,
-    });
+    const res = await fetch(
+      `${API_BASE_URL2}/image/presigned-url-image?folderPath=${folderName}&fileName=${fileName}&fileType=${fileType}`
+    );
 
     if (!res.ok) {
-      console.error("❌ Upload failed:", await res.text());
+      console.error("❌ Failed to get presigned URL:", await res.text());
       return null;
     }
 
-    const data = await res.json();
-    console.log("✅ File uploaded:", data.fileUrl);
-    return data.fileUrl;
-  } catch (err) {
-    console.error("❌ Upload error:", err);
-    return null;
-  }
-};
+    const { uploadUrl, fileUrl } = await res.json();
+    console.log("✅ Presigned URL generated:", fileUrl);
 
-// 🔹 Process a single question (upload images via backend)
-const processQuestion = async (q) => {
-  // Upload question images
-  const questionImageUrls =
-    q.questionImages && q.questionImages.length > 0
-      ? await Promise.all(q.questionImages.map((img) => uploadFileToBackend(img, "questions")))
-      : [];
+    const uploadRes = await fetch(uploadUrl, {
+      method: "PUT",
+      headers: { "Content-Type": file.type },
+      body: file,
+    });
 
-  // Upload solution images
-  const solutionImageUrls =
-    q.solutionImages && q.solutionImages.length > 0
-      ? await Promise.all(q.solutionImages.map((img) => uploadFileToBackend(img, "solutions")))
-      : [];
-
-  // Upload option images
-  const processedOptions = await Promise.all(
-    [0, 1, 2, 3].map(async (i) => {
-      const opt = q.options?.[i];
-      const isString = typeof opt === "string";
-      const text = isString ? opt : opt?.text || `Option ${i + 1}`;
-      const image = isString
-        ? null
-        : opt?.image
-        ? await uploadFileToBackend(opt.image, "options")
-        : null;
-      return { text, image };
-    })
-  );
-
-  return {
-    question: q.text || "",
-    questionImages: questionImageUrls.length > 0 ? questionImageUrls : ["NO_QUESTION_IMAGE"],
-
-    solution: q.solutionText || "", // ✅ fix: use solutionText
-    solutionImages: solutionImageUrls.length > 0 ? solutionImageUrls : ["NO_SOLUTION_IMAGE"],
-
-    option1: processedOptions[0].text,
-    option1Image: processedOptions[0].image,
-    option2: processedOptions[1].text,
-    option2Image: processedOptions[1].image,
-    option3: processedOptions[2].text,
-    option3Image: processedOptions[2].image,
-    option4: processedOptions[3].text,
-    option4Image: processedOptions[3].image,
-
-    correctIndex: q.correctIndex || 0,
-    rows: q.rows || 0,
-    cols: q.cols || 0,
-    tableData: q.tableData || [],
+    if (uploadRes.ok) {
+      console.log("✅ Successfully uploaded:", fileUrl);
+      return fileUrl;
+    } else {
+      console.error("❌ Upload failed for", file.name);
+      return null;
+    }
   };
-};
 
-// 🔹 Add a new question with solutionText
-const createNewQuestion = () => ({
-  text: "",
-  solutionText: "", // ✅ important for saving solution
-  questionImages: [],
-  solutionImages: [],
-  options: ["", "", "", ""],
-  correctIndex: 0,
-  rows: 1,
-  cols: 1,
-  tableData: [],
-});
+  // 🔹 Process a single question (including table)
+  const processQuestion = async (q) => {
+    // ✅ Upload multiple question images
+    let questionImageUrls =
+      q.questionImages && q.questionImages.length > 0
+        ? await Promise.all(q.questionImages.map((img) => uploadFileToS3(img, "questions")))
+        : [];
 
-// 🔹 Debugging: check solutionText before saving
-console.log(
-  "Current solutionText values for all questions:",
-  questions.map((q) => q.solutionText)
-);
+    if (questionImageUrls.length === 0) {
+      questionImageUrls = ["NO_QUESTION_IMAGE"];
+    }
 
-// 🔹 Save Test Handler
-const handleSaveTest = async () => {
-  if (!selectedUnit) return alert("Please select a lesson before saving the test.");
-  if (!testName.trim()) return alert("Please enter a test name.");
+    // ✅ Upload multiple solution images
+    let solutionImageUrls =
+      q.solutionImages && q.solutionImages.length > 0
+        ? await Promise.all(q.solutionImages.map((img) => uploadFileToS3(img, "solutions")))
+        : [];
 
-  const pass = parseInt(passPercentage);
-  if (!pass || pass <= 0 || pass > 100)
-    return alert("Pass percentage must be between 1 and 100.");
-  if (questions.length === 0) return alert("Add at least one question before saving the test.");
+    if (solutionImageUrls.length === 0) {
+      solutionImageUrls = ["NO_SOLUTION_IMAGE"];
+    }
 
-  try {
+    // ✅ Process options
+    const processedOptions = await Promise.all(
+      [0, 1, 2, 3].map(async (i) => {
+        const opt = q.options?.[i];
+        const isString = typeof opt === "string";
+
+        const text = isString ? opt : opt?.text || `Option ${i + 1}`;
+        const image = isString
+          ? null
+          : opt?.image
+            ? await uploadFileToS3(opt.image, "options")
+            : null;
+
+        return { text, image };
+      })
+    );
+
+    return {
+      question: q.text || "",
+      questionImages: questionImageUrls,
+      solution: q.solution || "",
+      solutionImages: solutionImageUrls,
+
+      option1: processedOptions[0].text,
+      option1Image: processedOptions[0].image,
+      option2: processedOptions[1].text,
+      option2Image: processedOptions[1].image,
+      option3: processedOptions[2].text,
+      option3Image: processedOptions[2].image,
+      option4: processedOptions[3].text,
+      option4Image: processedOptions[3].image,
+
+      correctIndex: q.correctIndex,
+
+      // ✅ Include Table Data
+      rows: q.rows || 0,
+      cols: q.cols || 0,
+      tableData: q.tableData || [],
+    };
+  };
+
+  // 🔹 Save Test Handler
+  const handleSaveTest = async () => {
+    if (!selectedUnit) {
+      alert("Please select a lesson before saving the test.");
+      return;
+    }
+
+    if (!testName.trim()) {
+      alert("Please enter a test name.");
+      return;
+    }
+
+    const pass = parseInt(passPercentage);
+    if (!pass || pass <= 0 || pass > 100) {
+      alert("Pass percentage must be between 1 and 100.");
+      return;
+    }
+
+    if (questions.length === 0) {
+      alert("Add at least one question before saving the test.");
+      return;
+    }
+
     // ✅ Process all questions
     const processedQuestions = [];
     for (const q of questions) {
@@ -1089,42 +916,42 @@ const handleSaveTest = async () => {
       editingTestIndex === "value"
         ? `${API_BASE_URL}/updateQuestion/${lastClicked}/${oldQuestionForDeletion}`
         : `${API_BASE_URL}/addQuestion/${lastClicked}`;
+
     const method = editingTestIndex === "value" ? "PUT" : "POST";
 
-    const res = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(testDatas),
-    });
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(testDatas),
+      });
 
-    if (!res.ok) {
-      const errorMsg = await res.text();
-      console.error("❌ Backend error:", errorMsg);
-      throw new Error(`Failed to save test: ${res.status}`);
+      if (!res.ok) {
+        const errorMsg = await res.text();
+        console.error("❌ Backend error:", errorMsg);
+        throw new Error(`❌ Failed to save test: ${res.status}`);
+      }
+
+      const data = await res.json();
+      console.log("✅ Test submitted:", data);
+
+      // ✅ Reset UI (including table)
+      getAllData();
+      setSelectedTest(null);
+      resetTestForm();
+
+      // Reset table for next question
+      setCurrentQuestion({
+        rows: 1,
+        cols: 1,
+        tableData: [],
+        showMatches: false,
+        tableEditable: false,
+      });
+    } catch (err) {
+      console.error("⚠️ Submission failed:", err);
     }
-
-    const data = await res.json();
-    console.log("✅ Test submitted:", data);
-
-    // ✅ Reset UI
-    getAllData();
-    setSelectedTest(null);
-    resetTestForm();
-    setCurrentQuestion({
-      rows: 1,
-      cols: 1,
-      tableData: [],
-      showMatches: false,
-      tableEditable: false,
-      solutionText: "", // ✅ reset solutionText
-    });
-  } catch (err) {
-    console.error("⚠️ Submission failed:", err);
-  }
-};
-
-
-
+  };
 
 
 
