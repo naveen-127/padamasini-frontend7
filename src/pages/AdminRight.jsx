@@ -420,9 +420,9 @@ const AdminRight = () => {
       const newSub = {
         unitName: subTitle.trim(),
         explanation: subDesc.trim(),
-        imageUrls,   // array of images
-        audioUrl,    // single audio
-        aiVideoUrl,  // single video
+        imageUrls,   // already array
+        audioFileId: audioUrl ? [audioUrl] : [],  // ✅ backend expects array
+        aiVideoUrl,  // single video string
         parentId: selectedUnit,
       };
 
