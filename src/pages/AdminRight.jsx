@@ -957,6 +957,7 @@ const AdminRight = () => {
 
 
 
+ 
   const API_BASE_URL2 = `${API_BASE_URL}/api`;
 
   // 🔹 Upload file via backend (no CORS issues)
@@ -1108,8 +1109,6 @@ const AdminRight = () => {
       console.error("⚠️ Submission failed:", err);
     }
   };
-
-
 
 
 
