@@ -2829,9 +2829,9 @@ const AdminRight = () => {
                <textarea
                   placeholder="Explain the correct answer"
                   rows={3}
-                  value={currentQuestion.explanation || ""}
+                  value={currentQuestion.solutionText || ""}
                   onChange={(e) =>
-                    setCurrentQuestion((q) => ({ ...q, explanation: e.target.value }))
+                    setCurrentQuestion((q) => ({ ...q, solutionText: e.target.value }))
                   }
                 />
 
