@@ -130,7 +130,7 @@ const AdminRight = () => {
       { text: '', image: null },
     ],
     correctIndex: null,
-    explanation: '',
+    // explanation: '',
     solutionText:''
 
   });
@@ -2734,14 +2734,14 @@ const AdminRight = () => {
                   </div>
 
                 ))}
-               {/* <textarea
+              <textarea
                   placeholder="Explain the correct answer"
                   rows={3}
                   value={currentQuestion.solutionText || ""}
                   onChange={(e) =>
                     setCurrentQuestion((q) => ({ ...q, solutionText: e.target.value }))
                   }
-                /> */}
+                /> 
 
 
                 <button
