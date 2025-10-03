@@ -1020,7 +1020,7 @@ const AdminRight = () => {
       question: q.text || "", // question text
       questionImages: questionImageUrls.length > 0 ? questionImageUrls : ["NO_QUESTION_IMAGE"],
 
-      solution: q.solutionText || "", // ✅ solution text
+      explanation: q.solutionText || "", // ✅ solution text
       solutionImages: solutionImageUrls.length > 0 ? solutionImageUrls : ["NO_SOLUTION_IMAGE"],
 
       option1: processedOptions[0].text,
