@@ -1051,10 +1051,10 @@ const AdminRight = () => {
   });
 
   // 🔹 Debugging: check solutionText before saving
-  console.log(
-    "Current solutionText values for all questions:",
-    questions.map((q) => q.solutionText)
-  );
+  // console.log(
+  //   "Current solutionText values for all questions:",
+  //   questions.map((q) => q.solutionText)
+  // );
 
   // 🔹 Save Test Handler
   const handleSaveTest = async () => {
