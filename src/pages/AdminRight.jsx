@@ -130,8 +130,8 @@ const AdminRight = () => {
       { text: '', image: null },
     ],
     correctIndex: null,
-    // explanation: '',
-    solutionText:''
+    explanation: '',
+    // solutionText:''
 
   });
   const handleStartRecording = async () => {
@@ -2737,9 +2737,9 @@ const AdminRight = () => {
               <textarea
                   placeholder="Explain the correct answer"
                   rows={3}
-                  value={currentQuestion.solutionText || ""}
+                  value={currentQuestion.explanation || ""}
                   onChange={(e) =>
-                    setCurrentQuestion((q) => ({ ...q, solutionText: e.target.value }))
+                    setCurrentQuestion((q) => ({ ...q, explanation: e.target.value }))
                   }
                 /> 
 
