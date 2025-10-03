@@ -957,7 +957,91 @@ const AdminRight = () => {
 
 
 
-   // 🔹 Save Test Handler
+  const API_BASE_URL2 = `${API_BASE_URL}/api`;
+
+  // 🔹 Upload file via backend (no CORS issues)
+  const uploadFileToBackend = async (file, folderName = "uploads") => {
+    if (!file) return null;
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("folderName", folderName);
+
+    try {
+      const res = await fetch(`${API_BASE_URL2}/image/upload`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        console.error("❌ Upload failed:", await res.text());
+        return null;
+      }
+
+      const data = await res.json();
+      console.log("✅ File uploaded:", data.fileUrl);
+      return data.fileUrl;
+    } catch (err) {
+      console.error("❌ Upload error:", err);
+      return null;
+    }
+  };
+
+  // 🔹 Process a single question (upload images via backend)
+  const processQuestion = async (q) => {
+    // ✅ Upload question images
+    const questionImageUrls =
+      q.questionImages && q.questionImages.length > 0
+        ? await Promise.all(q.questionImages.map((img) => uploadFileToBackend(img, "questions")))
+        : [];
+
+    // ✅ Upload solution images
+    const solutionImageUrls =
+      q.solutionImages && q.solutionImages.length > 0
+        ? await Promise.all(q.solutionImages.map((img) => uploadFileToBackend(img, "solutions")))
+        : [];
+
+    // ✅ Upload option images
+    const processedOptions = await Promise.all(
+      [0, 1, 2, 3].map(async (i) => {
+        const opt = q.options?.[i];
+        const isString = typeof opt === "string";
+        const text = isString ? opt : opt?.text || `Option ${i + 1}`;
+        const image = isString
+          ? null
+          : opt?.image
+            ? await uploadFileToBackend(opt.image, "options")
+            : null;
+        return { text, image };
+      })
+    );
+
+    return {
+      question: q.text || "", // question text
+      questionImages: questionImageUrls.length > 0 ? questionImageUrls : ["NO_QUESTION_IMAGE"],
+
+      solution: q.solutionText || "", // ✅ solution text
+      solutionImages: solutionImageUrls.length > 0 ? solutionImageUrls : ["NO_SOLUTION_IMAGE"],
+
+      option1: processedOptions[0].text,
+      option1Image: processedOptions[0].image,
+      option2: processedOptions[1].text,
+      option2Image: processedOptions[1].image,
+      option3: processedOptions[2].text,
+      option3Image: processedOptions[2].image,
+      option4: processedOptions[3].text,
+      option4Image: processedOptions[3].image,
+
+      correctIndex: q.correctIndex || 0,
+
+      // ✅ Include table data
+      rows: q.rows || 0,
+      cols: q.cols || 0,
+      tableData: q.tableData || [],
+    };
+  };
+ console.log("Current solutionText values for all questions:", questions.map(q => q.solutionText));
+  // 🔹 Save Test Handler
   const handleSaveTest = async () => {
     if (!selectedUnit) return alert("Please select a lesson before saving the test.");
     if (!testName.trim()) return alert("Please enter a test name.");
@@ -966,13 +1050,6 @@ const AdminRight = () => {
     if (!pass || pass <= 0 || pass > 100)
       return alert("Pass percentage must be between 1 and 100.");
     if (questions.length === 0) return alert("Add at least one question before saving the test.");
-
-    // ✅ check for solutionText
-    for (const q of questions) {
-      if (!q.solutionText || q.solutionText.trim() === "") {
-        return alert("Please provide an explanation (solution text) for every question.");
-      }
-    }
 
     try {
       // ✅ Process all questions
@@ -997,8 +1074,8 @@ const AdminRight = () => {
 
       const url =
         editingTestIndex === "value"
-          ? `${API_BASE_URL2}/updateQuestion/${lastClicked}/${oldQuestionForDeletion}`
-          : `${API_BASE_URL2}/addQuestion/${lastClicked}`;
+          ? `${API_BASE_URL}/updateQuestion/${lastClicked}/${oldQuestionForDeletion}`
+          : `${API_BASE_URL}/addQuestion/${lastClicked}`;
       const method = editingTestIndex === "value" ? "PUT" : "POST";
 
       const res = await fetch(url, {
@@ -1026,7 +1103,6 @@ const AdminRight = () => {
         tableData: [],
         showMatches: false,
         tableEditable: false,
-        solutionText: "", // ✅ reset solutionText
       });
     } catch (err) {
       console.error("⚠️ Submission failed:", err);
