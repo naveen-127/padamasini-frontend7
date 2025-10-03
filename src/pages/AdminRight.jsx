@@ -131,6 +131,8 @@ const AdminRight = () => {
     ],
     correctIndex: null,
     explanation: '',
+    solutionText:''
+
   });
   const handleStartRecording = async () => {
     try {
