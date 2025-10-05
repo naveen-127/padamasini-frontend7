@@ -355,115 +355,144 @@ const AdminRight = () => {
       })
   };
   
- let alertShown = false;
-  const handleAddSubtopic = async () => {
-    console.log("🟢 handleAddSubtopic CALLED");
+let alertShown = false;
+const handleAddSubtopic = async () => {
+  console.log("🟢 handleAddSubtopic CALLED");
 
-    if (isRecording) {
-      console.log("⚠️ Cannot add subtopic while recording.");
-      if (!alertShown) {
-        alertShown = true;
-        setTimeout(() => (alertShown = false), 1000);
-        alert("Stop recording first before adding a subtopic.");
+  if (isRecording) {
+    console.log("⚠️ Cannot add subtopic while recording.");
+    if (!alertShown) {
+      alertShown = true;
+      setTimeout(() => (alertShown = false), 1000);
+      alert("Stop recording first before adding a subtopic.");
+    }
+    return;
+  }
+
+  if (!selectedUnit || !subTitle.trim()) {
+    console.log("⚠️ Validation failed: Missing selectedUnit or subTitle");
+    alert("Select a lesson and enter a title.");
+    return;
+  }
+
+  try {
+    console.log("📌 Starting file uploads...");
+
+    // Upload images
+    const imageUrls = [];
+    if (animFiles.length > 0) {
+      for (const img of animFiles) {
+        console.log("⬆️ Uploading image:", img.name || img);
+        const uploaded = await uploadFileToS3(img, "subtopics/images");
+        console.log("✅ Uploaded image URL:", uploaded);
+        if (uploaded) imageUrls.push(uploaded);
       }
-      return;
+    } else {
+      console.log("ℹ️ No images to upload.");
     }
 
-    if (!selectedUnit || !subTitle.trim()) {
-      console.log("⚠️ Validation failed: Missing selectedUnit or subTitle");
-      alert("Select a lesson and enter a title.");
-      return;
-    }
-
-    try {
-      console.log("📌 Starting file uploads...");
-
-      // ✅ Upload images
-      const imageUrls = [];
-      if (animFiles.length > 0) {
-        for (const img of animFiles) {
-          console.log("⬆️ Uploading image:", img.name || img);
-          const uploaded = await uploadFileToS3(img, "subtopics/images");
-          console.log("✅ Uploaded image URL:", uploaded);
-          if (uploaded) imageUrls.push(uploaded);
-        }
-      } else {
-        console.log("ℹ️ No images to upload.");
-      }
-
-      // ✅ Upload audio files
-      let audioUrl = null;
-      const allAudios = [...recordedVoiceFiles, ...uploadedVoiceFiles];
-      if (allAudios.length > 0) {
-        const audio = allAudios[0];
-        console.log("⬆️ Uploading audio:", audio.name || audio);
-        const uploaded = await uploadFileToS3(audio, "subtopics/audios");
+    // Upload audio => we will store as array of URLs (audioFileId)
+    let audioUrl = null;
+    const allAudios = [...recordedVoiceFiles, ...uploadedVoiceFiles];
+    const audioFileId = [];
+    if (allAudios.length > 0) {
+      for (const a of allAudios) {
+        console.log("⬆️ Uploading audio:", a.name || a);
+        const uploaded = await uploadFileToS3(a, "subtopics/audios");
         console.log("✅ Uploaded audio URL:", uploaded);
-        if (uploaded) audioUrl = uploaded;
-      } else {
-        console.log("ℹ️ No audio files to upload.");
+        if (uploaded) audioFileId.push(uploaded);
       }
-
-      // ✅ Upload video files
-      let aiVideoUrl = null;
-      if (videoFiles.length > 0) {
-        const video = videoFiles[0];
-        console.log("⬆️ Uploading video:", video.name || video);
-        const uploaded = await uploadFileToS3(video, "subtopics/videos");
-        console.log("✅ Uploaded video URL:", uploaded);
-        if (uploaded) aiVideoUrl = uploaded;
-      } else {
-        console.log("ℹ️ No video file uploaded.");
-      }
-
-      // ✅ Final payload matching backend schema
-      const newSub = {
-        unitName: subTitle.trim(),
-        explanation: subDesc.trim(),
-        imageUrls, // array
-        audioFileId: audioUrl ? [audioUrl] : [], // backend expects array
-        aiVideoUrl, // single video string
-        parentId: selectedUnit,
-      };
-
-      console.log("📦 Final Payload to send:", { selectedUnit, ...newSub });
-
-      // ✅ Send to backend
-      const response = await fetch(`${API_BASE_URL}/api/addSubtopic`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ unit: selectedUnit, ...newSub }),
-      });
-
-      console.log("📡 Backend Response Status:", response.status);
-
-      if (!response.ok) {
-        throw new Error(
-          `❌ Failed to save subtopic. Status: ${response.status}`
-        );
-      }
-
-      const result = await response.json();
-      console.log("✅ Subtopic saved successfully:", result);
-
-      // ✅ Update frontend state
-      setLessonSubtopicsMap((prev) => {
-        const currentSubs = prev[selectedUnit] || [];
-        if (editingSubtopicIndex !== null) {
-          const updated = [...currentSubs];
-          updated[editingSubtopicIndex] = newSub;
-          return { ...prev, [selectedUnit]: updated };
-        }
-        return { ...prev, [selectedUnit]: [...currentSubs, newSub] };
-      });
-
-      resetExplanationForm();
-    } catch (error) {
-      console.error("❌ Error in handleAddSubtopic:", error);
-      alert("Failed to add subtopic. Check console for details.");
+    } else {
+      console.log("ℹ️ No audio files to upload.");
     }
-  };
 
+    // Upload AI video (single)
+    let aiVideoUrl = null;
+    if (videoFiles.length > 0) {
+      const video = videoFiles[0];
+      console.log("⬆️ Uploading video:", video.name || video);
+      const uploaded = await uploadFileToS3(video, "subtopics/videos");
+      console.log("✅ Uploaded video URL:", uploaded);
+      if (uploaded) aiVideoUrl = uploaded;
+    } else {
+      console.log("ℹ️ No video file uploaded.");
+    }
+
+    // Build payload shaped for WrapperUnitRequest (backend)
+    const payload = {
+      // required for server to know where to save the subtopic
+      parentId: selectedUnit,      // the parent unit id (the lesson/subtopic parent)
+      rootUnitId: rootUnitId || selectedRootId || selectedUnitRoot, // provide the root unit id (the top-level UnitRequest _id)
+      dbname: currentDbName || "your_db_name_here",   // make sure you populate this from your app state
+      subjectName: currentSubjectName || "subject_collection_name", // collection where the UnitRequest document lives
+      standard: currentStandard || "11",              // optional
+      // the actual subtopic fields:
+      unitName: subTitle.trim(),
+      explanation: subDesc.trim(),
+      imageUrls: imageUrls,                 // array of image urls
+      audioFileId: audioFileId,             // array of audio urls
+      aiVideoUrl: aiVideoUrl,               // single string or null
+      // if you support keeping some existing audio ids on update:
+      keepAudioFileIds: keepAudioIds || []
+    };
+
+    console.log("📦 Final Payload to send:", payload);
+
+    const response = await fetch(`${API_BASE_URL}/api/addSubtopic`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    console.log("📡 Backend Response Status:", response.status);
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`❌ Failed to save subtopic. Status: ${response.status} - ${text}`);
+    }
+
+    const result = await response.json();
+    console.log("✅ Subtopic saved successfully:", result);
+
+    // Update local UI state: append the newly created subtopic representation
+    setLessonSubtopicsMap((prev) => {
+      const currentSubs = prev[selectedUnit] || [];
+      if (editingSubtopicIndex !== null) {
+        const updated = [...currentSubs];
+        updated[editingSubtopicIndex] = {
+          id: result.insertedSubId || null,
+          unitName: payload.unitName,
+          explanation: payload.explanation,
+          imageUrls: payload.imageUrls,
+          audioFileId: payload.audioFileId,
+          aiVideoUrl: payload.aiVideoUrl,
+          parentId: payload.parentId
+        };
+        return { ...prev, [selectedUnit]: updated };
+      }
+      return {
+        ...prev,
+        [selectedUnit]: [
+          ...currentSubs,
+          {
+            id: result.insertedSubId || null,
+            unitName: payload.unitName,
+            explanation: payload.explanation,
+            imageUrls: payload.imageUrls,
+            audioFileId: payload.audioFileId,
+            aiVideoUrl: payload.aiVideoUrl,
+            parentId: payload.parentId
+          }
+        ]
+      };
+    });
+
+    resetExplanationForm();
+  } catch (error) {
+    console.error("❌ Error in handleAddSubtopic:", error);
+    alert("Failed to add subtopic. Check console for details.");
+  }
+};
 
   const updateTestsInSubtopicTree = (subtopics, targetTitle, newTest, isEdit = false, indexToEdit = null) => {
     return subtopics.map(sub => {
