@@ -356,12 +356,7 @@ const AdminRight = () => {
   };
   
 
- // -----------------------------
-  // 🟩 Reuse same helper as in handleSaveTest
   // -----------------------------
-  const API_BASE_URL3 = `${API_BASE_URL}/api`;
-
-   // -----------------------------
   // 🟩 Reuse same helper as in handleSaveTest
   // -----------------------------
   const API_BASE_URL3 = `${API_BASE_URL}/api`;
