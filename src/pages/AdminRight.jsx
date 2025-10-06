@@ -356,17 +356,20 @@ const AdminRight = () => {
   };
   
 
-   // -----------------------------
+ // -----------------------------
   // 🟩 Reuse same helper as in handleSaveTest
   // -----------------------------
   const API_BASE_URL3 = `${API_BASE_URL}/api`;
 
-  // 🔹 Upload file via backend (just like handleSaveTest)
+  // -----------------------------
+  // 🟩 Upload helper with debugger
+  // -----------------------------
   const uploadFileToBackend1 = async (file, folderName = "uploads") => {
     if (!file) return null;
 
     const formData = new FormData();
-    formData.append("file", file);
+    const fileName = file.name || `file-${Date.now()}`; // fallback for Blob objects
+    formData.append("file", file, fileName);
     formData.append("folderName", folderName);
 
     try {
@@ -381,14 +384,21 @@ const AdminRight = () => {
       }
 
       const data = await res.json();
-      console.log("✅ File uploaded:", data.fileUrl);
-      return data.fileUrl; // backend returns { fileUrl: "https://..." }
+      console.log(`✅ File uploaded: ${fileName} -> ${data.fileUrl}`);
+
+      // 🟢 Pause debugger here to inspect uploaded URL
+      debugger;
+
+      return data.fileUrl;
     } catch (err) {
       console.error("❌ Upload error:", err);
       return null;
     }
   };
 
+  // -----------------------------
+  // 🟩 Main handleAddSubtopic function
+  // -----------------------------
   const handleAddSubtopic = async () => {
     console.log("🟢 handleAddSubtopic CALLED");
 
@@ -409,59 +419,71 @@ const AdminRight = () => {
     try {
       console.log("📌 Starting uploads...");
 
-      // 🔹 Upload images via backend
+      // -----------------------------
+      // 🔹 Upload images
+      // -----------------------------
       const imageUrls =
         animFiles && animFiles.length > 0
           ? await Promise.all(
             animFiles.map(async (img) => {
               const url = await uploadFileToBackend1(img, "subtopics/images");
 
-              // 🟢 Debug: Check if returned URL is an S3 URL
               if (url) {
                 const isS3 = url.includes("s3.") || url.includes(".amazonaws.com");
-                console.log(`Image: ${img.name} -> URL: ${url} | Is S3? ${isS3}`);
+                console.log(`Image: ${img.name || "blob"} -> URL: ${url} | Is S3? ${isS3}`);
               } else {
-                console.warn(`Image: ${img.name} -> Upload failed or returned null`);
+                console.warn(`Image: ${img.name || "blob"} -> Upload failed`);
               }
+
+              // 🟢 Debugger for each image
+              debugger;
 
               return url;
             })
           )
           : [];
 
+      // -----------------------------
       // 🔹 Upload audio (first available)
+      // -----------------------------
       let audioFileIds = [];
       const allAudios = [...(recordedVoiceFiles || []), ...(uploadedVoiceFiles || [])];
       if (allAudios.length > 0) {
         const audio = allAudios[0];
         const uploaded = await uploadFileToBackend1(audio, "subtopics/audios");
 
-        // 🟢 Debug: Check if audio URL is S3
         if (uploaded) {
           const isS3 = uploaded.includes("s3.") || uploaded.includes(".amazonaws.com");
-          console.log(`Audio: ${audio.name} -> URL: ${uploaded} | Is S3? ${isS3}`);
+          console.log(`Audio: ${audio.name || "blob"} -> URL: ${uploaded} | Is S3? ${isS3}`);
           audioFileIds.push(uploaded);
         } else {
-          console.warn(`Audio: ${audio.name} -> Upload failed or returned null`);
+          console.warn(`Audio: ${audio.name || "blob"} -> Upload failed`);
         }
+
+        debugger; // pause for audio URL check
       }
 
-      // 🔹 Upload video
+      // -----------------------------
+      // 🔹 Upload video (first available)
+      // -----------------------------
       let aiVideoUrl = null;
       if (videoFiles && videoFiles.length > 0) {
         const video = videoFiles[0];
         aiVideoUrl = await uploadFileToBackend1(video, "subtopics/videos");
 
-        // 🟢 Debug: Check if video URL is S3
         if (aiVideoUrl) {
           const isS3 = aiVideoUrl.includes("s3.") || aiVideoUrl.includes(".amazonaws.com");
-          console.log(`Video: ${video.name} -> URL: ${aiVideoUrl} | Is S3? ${isS3}`);
+          console.log(`Video: ${video.name || "blob"} -> URL: ${aiVideoUrl} | Is S3? ${isS3}`);
         } else {
-          console.warn(`Video: ${video.name} -> Upload failed or returned null`);
+          console.warn(`Video: ${video.name || "blob"} -> Upload failed`);
         }
+
+        debugger; // pause for video URL check
       }
 
-      // 🔹 Build payload (unchanged)
+      // -----------------------------
+      // 🔹 Build payload
+      // -----------------------------
       const payload = {
         parentId: selectedUnit,
         rootUnitId: rootUnitId || selectedRootId || selectedUnit,
@@ -475,8 +497,11 @@ const AdminRight = () => {
       };
 
       console.log("📦 Final Payload:", payload);
+      debugger; // pause to inspect full payload before sending
 
-      // 🔹 Send to backend (unchanged)
+      // -----------------------------
+      // 🔹 Send payload to backend
+      // -----------------------------
       const res = await fetch(`${API_BASE_URL3}/api/addSubtopic`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -491,7 +516,9 @@ const AdminRight = () => {
       const result = await res.json();
       console.log("✅ Subtopic saved successfully:", result);
 
-      // 🔹 Update local state (unchanged)
+      // -----------------------------
+      // 🔹 Update local state
+      // -----------------------------
       const newSub = {
         id: result.insertedSubId || Math.random().toString(36).slice(2),
         unitName: payload.unitName,
