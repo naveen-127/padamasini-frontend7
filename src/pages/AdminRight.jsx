@@ -356,175 +356,173 @@ const AdminRight = () => {
   };
   
 
-  // -----------------------------
-  // 🟩 Reuse same helper as in handleSaveTest
-  // -----------------------------
-  const API_BASE_URL3 = `${API_BASE_URL}/api`;
+// -----------------------------
+// 🟩 API Base URL
+// -----------------------------
+const API_BASE_URL3 = `${API_BASE_URL}/api`;
 
-  // -----------------------------
-  // 🟩 Upload helper (images, audio, video)
-  // -----------------------------
-  const uploadFileToBackend1 = async (file, folderName = "uploads") => {
-    if (!file) return null;
+// -----------------------------
+// 🟩 Upload helper (images, audio, video)
+// -----------------------------
+const uploadFileToBackend1 = async (file, folderName = "uploads") => {
+  if (!file) return null;
 
-    // Ensure filename exists
-    const fileName = file.name || `file-${Date.now()}`;
-    const formData = new FormData();
-    formData.append("file", file, fileName);
-    formData.append("folderName", folderName);
+  // Ensure filename exists (important for Blob objects)
+  const fileName = file.name || `file-${Date.now()}`;
+  const formData = new FormData();
+  formData.append("file", file, fileName);
+  formData.append("folderName", folderName);
 
-    try {
-      const res = await fetch(`${API_BASE_URL2}/image/upload`, {
-        method: "POST",
-        body: formData,
-      });
+  try {
+    const res = await fetch(`${API_BASE_URL2}/image/upload`, {
+      method: "POST",
+      body: formData,
+    });
 
-      if (!res.ok) {
-        console.error("❌ Upload failed:", await res.text());
-        return null;
-      }
-
-      const data = await res.json();
-
-      if (!data.fileUrl) {
-        console.warn("⚠️ No fileUrl returned from upload");
-        return null;
-      }
-
-      console.log(`✅ File uploaded: ${fileName} -> ${data.fileUrl}`);
-
-      // Debugger to inspect uploaded URL
-      debugger;
-
-      return data.fileUrl; // return S3 URL
-    } catch (err) {
-      console.error("❌ Upload error:", err);
+    if (!res.ok) {
+      console.error("❌ Upload failed:", await res.text());
       return null;
     }
-  };
 
-  // -----------------------------
-  // 🟩 Main handleAddSubtopic function
-  // -----------------------------
-  const handleAddSubtopic = async () => {
-    console.log("🟢 handleAddSubtopic CALLED");
+    const data = await res.json();
 
-    if (isRecording) {
-      if (!alertShown) {
-        alertShown = true;
-        setTimeout(() => (alertShown = false), 1000);
-        alert("Stop recording before adding a subtopic.");
-      }
-      return;
+    if (!data.fileUrl) {
+      console.warn("⚠️ No fileUrl returned from upload");
+      return null;
     }
 
-    if (!selectedUnit || !subTitle.trim()) {
-      alert("Select a lesson and enter a title.");
-      return;
+    console.log(`✅ File uploaded: ${fileName} -> ${data.fileUrl}`);
+    debugger; // pause to inspect uploaded URL
+
+    return data.fileUrl; // return S3 URL
+  } catch (err) {
+    console.error("❌ Upload error:", err);
+    return null;
+  }
+};
+
+// -----------------------------
+// 🟩 Main handleAddSubtopic function
+// -----------------------------
+const handleAddSubtopic = async () => {
+  console.log("🟢 handleAddSubtopic CALLED");
+
+  if (isRecording) {
+    if (!alertShown) {
+      alertShown = true;
+      setTimeout(() => (alertShown = false), 1000);
+      alert("Stop recording before adding a subtopic.");
     }
+    return;
+  }
 
-    try {
-      console.log("📌 Starting uploads...");
+  if (!selectedUnit || !subTitle.trim()) {
+    alert("Select a lesson and enter a title.");
+    return;
+  }
 
-      // -----------------------------
-      // 🔹 Upload images
-      // -----------------------------
-      const imageUrls = animFiles && animFiles.length > 0
-        ? await Promise.all(
+  try {
+    console.log("📌 Starting uploads...");
+
+    // -----------------------------
+    // 🔹 Upload images
+    // -----------------------------
+    const imageUrls = animFiles && animFiles.length > 0
+      ? await Promise.all(
           animFiles.map(async (img) => {
             const url = await uploadFileToBackend1(img, "subtopics/images");
             if (!url) console.warn(`${img.name || "blob"} upload failed`);
             return url;
           })
         )
-        : [];
+      : [];
 
-      // -----------------------------
-      // 🔹 Upload audio (first available)
-      // -----------------------------
-      let audioFileIds = [];
-      const allAudios = [...(recordedVoiceFiles || []), ...(uploadedVoiceFiles || [])];
-      if (allAudios.length > 0) {
-        const audio = allAudios[0];
-        const uploaded = await uploadFileToBackend1(audio, "subtopics/audios");
-        if (uploaded) audioFileIds.push(uploaded);
-        else console.warn(`${audio.name || "blob"} audio upload failed`);
-      }
-
-      // -----------------------------
-      // 🔹 Upload video (first available)
-      // -----------------------------
-      let aiVideoUrl = null;
-      if (videoFiles && videoFiles.length > 0) {
-        const video = videoFiles[0];
-        aiVideoUrl = await uploadFileToBackend1(video, "subtopics/videos");
-        if (!aiVideoUrl) console.warn(`${video.name || "blob"} video upload failed`);
-      }
-
-      // -----------------------------
-      // 🔹 Build payload
-      // -----------------------------
-      const payload = {
-        parentId: selectedUnit,
-        rootUnitId: rootUnitId || selectedRootId || selectedUnit,
-        dbname: dbName || defaultDbName,
-        subjectName: subjectName || defaultSubjectName,
-        unitName: subTitle.trim(),
-        explanation: subDesc.trim(),
-        imageUrls: imageUrls.filter(Boolean),
-        audioFileId: audioFileIds,
-        aiVideoUrl,
-      };
-
-      console.log("📦 Final Payload:", payload);
-      debugger; // Inspect payload before sending
-
-      // -----------------------------
-      // 🔹 Send payload to backend
-      // -----------------------------
-      const res = await fetch(`${API_BASE_URL3}/api/addSubtopic`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`❌ Save failed. Status: ${res.status}. Response: ${text}`);
-      }
-
-      const result = await res.json();
-      console.log("✅ Subtopic saved successfully:", result);
-
-      // -----------------------------
-      // 🔹 Update local state
-      // -----------------------------
-      const newSub = {
-        id: result.insertedSubId || Math.random().toString(36).slice(2),
-        unitName: payload.unitName,
-        explanation: payload.explanation,
-        imageUrls: payload.imageUrls,
-        audioFileId: payload.audioFileId,
-        aiVideoUrl: payload.aiVideoUrl,
-        parentId: payload.parentId,
-      };
-
-      setLessonSubtopicsMap((prev) => {
-        const current = prev[selectedUnit] || [];
-        if (editingSubtopicIndex !== null) {
-          const updated = [...current];
-          updated[editingSubtopicIndex] = newSub;
-          return { ...prev, [selectedUnit]: updated };
-        }
-        return { ...prev, [selectedUnit]: [...current, newSub] };
-      });
-
-      resetExplanationForm();
-    } catch (err) {
-      console.error("❌ handleAddSubtopic error:", err);
-      alert("Failed to add subtopic. Check console for details.");
+    // -----------------------------
+    // 🔹 Upload audio (first available)
+    // -----------------------------
+    let audioFileIds = [];
+    const allAudios = [...(recordedVoiceFiles || []), ...(uploadedVoiceFiles || [])];
+    if (allAudios.length > 0) {
+      const audio = allAudios[0];
+      const uploaded = await uploadFileToBackend1(audio, "subtopics/audios");
+      if (uploaded) audioFileIds.push(uploaded);
+      else console.warn(`${audio.name || "blob"} audio upload failed`);
     }
-  };
+
+    // -----------------------------
+    // 🔹 Upload video (first available)
+    // -----------------------------
+    let aiVideoUrl = null;
+    if (videoFiles && videoFiles.length > 0) {
+      const video = videoFiles[0];
+      aiVideoUrl = await uploadFileToBackend1(video, "subtopics/videos");
+      if (!aiVideoUrl) console.warn(`${video.name || "blob"} video upload failed`);
+    }
+
+    // -----------------------------
+    // 🔹 Build payload
+    // -----------------------------
+    const payload = {
+      parentId: selectedUnit,
+      rootUnitId: rootUnitId || selectedRootId || selectedUnit,
+      dbname: dbName || defaultDbName,
+      subjectName: subjectName || defaultSubjectName,
+      unitName: subTitle.trim(),
+      explanation: subDesc.trim(),
+      imageUrls: imageUrls.filter(Boolean), // only valid URLs
+      audioFileId: audioFileIds,
+      aiVideoUrl,
+    };
+
+    console.log("📦 Final Payload:", payload);
+    debugger; // pause to inspect payload before sending
+
+    // -----------------------------
+    // 🔹 Send payload to backend
+    // -----------------------------
+    const res = await fetch(`${API_BASE_URL3}/api/addSubtopic`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`❌ Save failed. Status: ${res.status}. Response: ${text}`);
+    }
+
+    const result = await res.json();
+    console.log("✅ Subtopic saved successfully:", result);
+
+    // -----------------------------
+    // 🔹 Update local state
+    // -----------------------------
+    const newSub = {
+      id: result.insertedSubId || Math.random().toString(36).slice(2),
+      unitName: payload.unitName,
+      explanation: payload.explanation,
+      imageUrls: payload.imageUrls,
+      audioFileId: payload.audioFileId,
+      aiVideoUrl: payload.aiVideoUrl,
+      parentId: payload.parentId,
+    };
+
+    setLessonSubtopicsMap((prev) => {
+      const current = prev[selectedUnit] || [];
+      if (editingSubtopicIndex !== null) {
+        const updated = [...current];
+        updated[editingSubtopicIndex] = newSub;
+        return { ...prev, [selectedUnit]: updated };
+      }
+      return { ...prev, [selectedUnit]: [...current, newSub] };
+    });
+
+    resetExplanationForm();
+  } catch (err) {
+    console.error("❌ handleAddSubtopic error:", err);
+    alert("Failed to add subtopic. Check console for details.");
+  }
+};
 
 
   const updateTestsInSubtopicTree = (subtopics, targetTitle, newTest, isEdit = false, indexToEdit = null) => {
