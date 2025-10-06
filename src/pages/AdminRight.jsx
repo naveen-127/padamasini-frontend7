@@ -361,14 +361,20 @@ const AdminRight = () => {
   // -----------------------------
   const API_BASE_URL3 = `${API_BASE_URL}/api`;
 
+   // -----------------------------
+  // 🟩 Reuse same helper as in handleSaveTest
   // -----------------------------
-  // 🟩 Upload helper with debugger
+  const API_BASE_URL3 = `${API_BASE_URL}/api`;
+
+  // -----------------------------
+  // 🟩 Upload helper (images, audio, video)
   // -----------------------------
   const uploadFileToBackend1 = async (file, folderName = "uploads") => {
     if (!file) return null;
 
+    // Ensure filename exists
+    const fileName = file.name || `file-${Date.now()}`;
     const formData = new FormData();
-    const fileName = file.name || `file-${Date.now()}`; // fallback for Blob objects
     formData.append("file", file, fileName);
     formData.append("folderName", folderName);
 
@@ -384,12 +390,18 @@ const AdminRight = () => {
       }
 
       const data = await res.json();
+
+      if (!data.fileUrl) {
+        console.warn("⚠️ No fileUrl returned from upload");
+        return null;
+      }
+
       console.log(`✅ File uploaded: ${fileName} -> ${data.fileUrl}`);
 
-      // 🟢 Pause debugger here to inspect uploaded URL
+      // Debugger to inspect uploaded URL
       debugger;
 
-      return data.fileUrl;
+      return data.fileUrl; // return S3 URL
     } catch (err) {
       console.error("❌ Upload error:", err);
       return null;
@@ -422,26 +434,15 @@ const AdminRight = () => {
       // -----------------------------
       // 🔹 Upload images
       // -----------------------------
-      const imageUrls =
-        animFiles && animFiles.length > 0
-          ? await Promise.all(
-            animFiles.map(async (img) => {
-              const url = await uploadFileToBackend1(img, "subtopics/images");
-
-              if (url) {
-                const isS3 = url.includes("s3.") || url.includes(".amazonaws.com");
-                console.log(`Image: ${img.name || "blob"} -> URL: ${url} | Is S3? ${isS3}`);
-              } else {
-                console.warn(`Image: ${img.name || "blob"} -> Upload failed`);
-              }
-
-              // 🟢 Debugger for each image
-              debugger;
-
-              return url;
-            })
-          )
-          : [];
+      const imageUrls = animFiles && animFiles.length > 0
+        ? await Promise.all(
+          animFiles.map(async (img) => {
+            const url = await uploadFileToBackend1(img, "subtopics/images");
+            if (!url) console.warn(`${img.name || "blob"} upload failed`);
+            return url;
+          })
+        )
+        : [];
 
       // -----------------------------
       // 🔹 Upload audio (first available)
@@ -451,16 +452,8 @@ const AdminRight = () => {
       if (allAudios.length > 0) {
         const audio = allAudios[0];
         const uploaded = await uploadFileToBackend1(audio, "subtopics/audios");
-
-        if (uploaded) {
-          const isS3 = uploaded.includes("s3.") || uploaded.includes(".amazonaws.com");
-          console.log(`Audio: ${audio.name || "blob"} -> URL: ${uploaded} | Is S3? ${isS3}`);
-          audioFileIds.push(uploaded);
-        } else {
-          console.warn(`Audio: ${audio.name || "blob"} -> Upload failed`);
-        }
-
-        debugger; // pause for audio URL check
+        if (uploaded) audioFileIds.push(uploaded);
+        else console.warn(`${audio.name || "blob"} audio upload failed`);
       }
 
       // -----------------------------
@@ -470,15 +463,7 @@ const AdminRight = () => {
       if (videoFiles && videoFiles.length > 0) {
         const video = videoFiles[0];
         aiVideoUrl = await uploadFileToBackend1(video, "subtopics/videos");
-
-        if (aiVideoUrl) {
-          const isS3 = aiVideoUrl.includes("s3.") || aiVideoUrl.includes(".amazonaws.com");
-          console.log(`Video: ${video.name || "blob"} -> URL: ${aiVideoUrl} | Is S3? ${isS3}`);
-        } else {
-          console.warn(`Video: ${video.name || "blob"} -> Upload failed`);
-        }
-
-        debugger; // pause for video URL check
+        if (!aiVideoUrl) console.warn(`${video.name || "blob"} video upload failed`);
       }
 
       // -----------------------------
@@ -497,7 +482,7 @@ const AdminRight = () => {
       };
 
       console.log("📦 Final Payload:", payload);
-      debugger; // pause to inspect full payload before sending
+      debugger; // Inspect payload before sending
 
       // -----------------------------
       // 🔹 Send payload to backend
@@ -545,6 +530,7 @@ const AdminRight = () => {
       alert("Failed to add subtopic. Check console for details.");
     }
   };
+
 
   const updateTestsInSubtopicTree = (subtopics, targetTitle, newTest, isEdit = false, indexToEdit = null) => {
     return subtopics.map(sub => {
