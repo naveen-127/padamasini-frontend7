@@ -356,13 +356,12 @@ const AdminRight = () => {
   };
   
 
-  // -----------------------------
+   // -----------------------------
   // 🟩 Reuse same helper as in handleSaveTest
   // -----------------------------
-  const API_BASE_URL3 = `${API_BASE_URL}/api`;  // your main API base
-  // const API_BASE_URL2 = `${API_BASE_URL}/api`;  // ensure both point to same backend
+  const API_BASE_URL3 = `${API_BASE_URL}/api`;
 
-  // 🔹 Upload file via backend
+  // 🔹 Upload file via backend (just like handleSaveTest)
   const uploadFileToBackend1 = async (file, folderName = "uploads") => {
     if (!file) return null;
 
@@ -390,9 +389,6 @@ const AdminRight = () => {
     }
   };
 
-  // -----------------------------
-  // 🟩 Add Subtopic (with image/audio upload)
-  // -----------------------------
   const handleAddSubtopic = async () => {
     console.log("🟢 handleAddSubtopic CALLED");
 
@@ -417,11 +413,21 @@ const AdminRight = () => {
       const imageUrls =
         animFiles && animFiles.length > 0
           ? await Promise.all(
-            animFiles.map((img) => uploadFileToBackend1(img, "subtopics/images"))
+            animFiles.map(async (img) => {
+              const url = await uploadFileToBackend1(img, "subtopics/images");
+
+              // 🟢 Debug: Check if returned URL is an S3 URL
+              if (url) {
+                const isS3 = url.includes("s3.") || url.includes(".amazonaws.com");
+                console.log(`Image: ${img.name} -> URL: ${url} | Is S3? ${isS3}`);
+              } else {
+                console.warn(`Image: ${img.name} -> Upload failed or returned null`);
+              }
+
+              return url;
+            })
           )
           : [];
-
-      console.log("🖼 Uploaded image URLs:", imageUrls);
 
       // 🔹 Upload audio (first available)
       let audioFileIds = [];
@@ -429,21 +435,33 @@ const AdminRight = () => {
       if (allAudios.length > 0) {
         const audio = allAudios[0];
         const uploaded = await uploadFileToBackend1(audio, "subtopics/audios");
-        if (uploaded) audioFileIds.push(uploaded);
-      }
 
-      console.log("🎧 Uploaded audio files:", audioFileIds);
+        // 🟢 Debug: Check if audio URL is S3
+        if (uploaded) {
+          const isS3 = uploaded.includes("s3.") || uploaded.includes(".amazonaws.com");
+          console.log(`Audio: ${audio.name} -> URL: ${uploaded} | Is S3? ${isS3}`);
+          audioFileIds.push(uploaded);
+        } else {
+          console.warn(`Audio: ${audio.name} -> Upload failed or returned null`);
+        }
+      }
 
       // 🔹 Upload video
       let aiVideoUrl = null;
       if (videoFiles && videoFiles.length > 0) {
         const video = videoFiles[0];
         aiVideoUrl = await uploadFileToBackend1(video, "subtopics/videos");
+
+        // 🟢 Debug: Check if video URL is S3
+        if (aiVideoUrl) {
+          const isS3 = aiVideoUrl.includes("s3.") || aiVideoUrl.includes(".amazonaws.com");
+          console.log(`Video: ${video.name} -> URL: ${aiVideoUrl} | Is S3? ${isS3}`);
+        } else {
+          console.warn(`Video: ${video.name} -> Upload failed or returned null`);
+        }
       }
 
-      console.log("🎥 Uploaded video URL:", aiVideoUrl);
-
-      // 🔹 Build payload
+      // 🔹 Build payload (unchanged)
       const payload = {
         parentId: selectedUnit,
         rootUnitId: rootUnitId || selectedRootId || selectedUnit,
@@ -451,16 +469,15 @@ const AdminRight = () => {
         subjectName: subjectName || defaultSubjectName,
         unitName: subTitle.trim(),
         explanation: subDesc.trim(),
-        imageUrls: imageUrls.filter(Boolean), // ensure only valid URLs
+        imageUrls: imageUrls.filter(Boolean),
         audioFileId: audioFileIds,
         aiVideoUrl,
       };
 
-      console.log("📦 Final Payload (before send):", JSON.stringify(payload, null, 2));
+      console.log("📦 Final Payload:", payload);
 
-      // 🔹 Send to backend
-      // ✅ FIXED ENDPOINT — make sure this matches your backend controller mapping
-      const res = await fetch(`${API_BASE_URL3}/addUnit`, {
+      // 🔹 Send to backend (unchanged)
+      const res = await fetch(`${API_BASE_URL3}/api/addSubtopic`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -474,7 +491,7 @@ const AdminRight = () => {
       const result = await res.json();
       console.log("✅ Subtopic saved successfully:", result);
 
-      // 🔹 Update local state
+      // 🔹 Update local state (unchanged)
       const newSub = {
         id: result.insertedSubId || Math.random().toString(36).slice(2),
         unitName: payload.unitName,
