@@ -2596,34 +2596,31 @@ console.log("🎧 Final audioFileIds before saving:", audioFileIds);
 
                 </div>
 <div className="action-buttons">
-  <button
-    onClick={() => {
-      // First run the existing function
-      addNewSubTopic();
-
-      // Then run your handleAddSubtopic
-      handleAddSubtopic();
-    }}
-  >
-    {editSelecetedSubUnit === 'value'
-      ? 'Update Subtopic'
-      : selectedSubtopic
-        ? 'Add Child Subtopic'
-        : 'Add Subtopic'}
-  </button>
-
-  <button
-    onClick={() => {
-      if (isRecording) {
-        alert("Stop recording first before adding a subtopic.");
-        return;
-      }
-      resetExplanationForm();
-    }}
-  >
-    Cancel
-  </button>
-</div>
+                  <button
+                    onClick={() => { addNewSubTopic(); }
+                      // selectedSubtopic
+                      //   ? handleAddChildSubtopic(selectedSubtopic)  // you define this function separately
+                      //   : handleAddSubtopic()
+                    }
+                  >
+                    {editSelecetedSubUnit === 'value'
+                      ? 'Update Subtopic'
+                      : selectedSubtopic
+                        ? 'Add Child Subtopic'
+                        : 'Add Subtopic'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (isRecording) {
+                        alert("Stop recording first before adding a subtopic.");
+                        return;
+                      }
+                      resetExplanationForm();
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
 
 
               </div>
