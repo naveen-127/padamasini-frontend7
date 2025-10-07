@@ -367,10 +367,10 @@ const uploadFileToBackend1 = async (file, folderName = "uploads") => {
   if (!file) return null;
 
   try {
-    const fileName = file.name;
-    const fileType = file.type;
+    const fileName = file.name || `file-${Date.now()}`;
+    const fileType = file.type || "application/octet-stream";
 
-    // Step 1: Ask backend for presigned URL
+    // Step 1️⃣ — Get presigned URL from backend
     const res = await fetch(`${API_BASE_URL3}/image/upload`, {
       method: "POST",
       body: new URLSearchParams({
@@ -380,17 +380,19 @@ const uploadFileToBackend1 = async (file, folderName = "uploads") => {
       }),
     });
 
-    if (!res.ok) throw new Error("Failed to get presigned URL");
+    if (!res.ok) throw new Error("❌ Failed to get presigned URL");
     const { uploadUrl, fileUrl } = await res.json();
 
-    // Step 2: Upload file directly to S3
-    await fetch(uploadUrl, {
+    // Step 2️⃣ — Upload the file directly to S3
+    const uploadResponse = await fetch(uploadUrl, {
       method: "PUT",
       headers: { "Content-Type": fileType },
       body: file,
     });
 
-    console.log("✅ File uploaded successfully:", fileUrl);
+    if (!uploadResponse.ok) throw new Error("❌ Upload to S3 failed");
+
+    console.log(`✅ File uploaded to S3: ${fileUrl}`);
     return fileUrl;
   } catch (err) {
     console.error("❌ Upload error:", err);
