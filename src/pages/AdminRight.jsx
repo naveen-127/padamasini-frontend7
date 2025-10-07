@@ -424,12 +424,16 @@ const AdminRight = () => {
       console.log("📌 Starting uploads...");
 
       // Upload images
-      const imageUrls =
-        animFiles && animFiles.length > 0
-          ? (await Promise.all(
-                currentQuestion.map(async (img) => await uploadFileToBackend1(img, "subtopics/images"))
-          )).filter(Boolean)
-          : [];
+     // Upload images (use currentQuestion.image)
+const imageUrls =
+  currentQuestion?.image && currentQuestion.image.length > 0
+    ? (await Promise.all(
+        currentQuestion.image.map(async (img) =>
+          await uploadFileToBackend1(img, "subtopics/images")
+        )
+      )).filter(Boolean)
+    : [];
+
 
       console.log("🖼️ Uploaded Image URLs:", imageUrls);
 
