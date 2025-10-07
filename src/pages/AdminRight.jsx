@@ -503,6 +503,11 @@ const handleAddSubtopic = async () => {
     // -----------------------------
     // 🧩 Update UI State
     // -----------------------------
+    // -----------------------------
+// 🧱 Build Payload
+// -----------------------------
+console.log("🖼️ Final imageUrls before saving:", imageUrls);
+console.log("🎧 Final audioFileIds before saving:", audioFileIds);
     const newSub = {
       id: result.insertedSubId || Math.random().toString(36).slice(2),
       unitName: payload.unitName,
