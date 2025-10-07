@@ -373,7 +373,7 @@ const uploadFileToBackend1 = async (file, folderName = "uploads") => {
 
   try {
     // ✅ use API_BASE_URL3 instead of API_BASE_URL2
-    const res = await fetch(`${API_BASE_URL}/image/upload`, {
+    const res = await fetch(`${API_BASE_URL3}/image/upload`, {
       method: "POST",
       body: formData,
     });
