@@ -358,6 +358,7 @@ const AdminRight = () => {
 // -----------------------------
 // 🟩 API Base URL
 // -----------------------------
+// ✅ use API_BASE_URL, not API_BASE_URL3 when making final POSTs
 const API_BASE_URL3 = `${API_BASE_URL}/api`;
 
 // -----------------------------
@@ -372,7 +373,6 @@ const uploadFileToBackend1 = async (file, folderName = "uploads") => {
   formData.append("folderName", folderName);
 
   try {
-    // ✅ use API_BASE_URL3 instead of API_BASE_URL2
     const res = await fetch(`${API_BASE_URL3}/image/upload`, {
       method: "POST",
       body: formData,
@@ -387,7 +387,7 @@ const uploadFileToBackend1 = async (file, folderName = "uploads") => {
     }
 
     const data = JSON.parse(text);
-    const fileUrl = data.fileUrl || data.url; // ✅ support both keys
+    const fileUrl = data.fileUrl || data.url;
 
     if (!fileUrl) {
       console.warn("⚠️ No fileUrl returned from backend:", data);
@@ -437,6 +437,8 @@ const handleAddSubtopic = async () => {
           )
         : [];
 
+    console.log("🖼️ Uploaded Image URLs:", imageUrls);
+
     // 🔹 Upload audio
     const audioFileIds = [];
     const allAudios = [...(recordedVoiceFiles || []), ...(uploadedVoiceFiles || [])];
@@ -466,11 +468,10 @@ const handleAddSubtopic = async () => {
       aiVideoUrl,
     };
 
-    console.log("📦 Final Payload:", payload);
-    debugger;
+    console.log("📦 Final Payload (before send):", payload);
 
-    // 🔹 Send payload to backend
-    const res = await fetch(`${API_BASE_URL3}/addSubtopic`, {
+    // 🔹 Send payload to backend (✅ single /api)
+    const res = await fetch(`${API_BASE_URL}/api/addSubtopic`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -511,6 +512,7 @@ const handleAddSubtopic = async () => {
     alert("Failed to add subtopic. Check console for details.");
   }
 };
+
 
   const updateTestsInSubtopicTree = (subtopics, targetTitle, newTest, isEdit = false, indexToEdit = null) => {
     return subtopics.map(sub => {
