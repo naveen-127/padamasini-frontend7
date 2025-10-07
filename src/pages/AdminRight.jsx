@@ -2595,8 +2595,6 @@ console.log("🎧 Final audioFileIds before saving:", audioFileIds);
                   </button>
 
                 </div>
-
-               <div className="action-buttons">
 <div className="action-buttons">
   <button
     onClick={() => {
