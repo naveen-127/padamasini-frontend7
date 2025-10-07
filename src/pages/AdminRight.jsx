@@ -366,29 +366,31 @@ const API_BASE_URL3 = `${API_BASE_URL}/api`;
 const uploadFileToBackend1 = async (file, folderName = "uploads") => {
   if (!file) return null;
 
-  const fileName = file.name || `file-${Date.now()}`;
-  const formData = new FormData();
-  formData.append("fileName", fileName);
-  formData.append("folderName", folderName);
-
   try {
-    // Step 1: Get pre-signed URL
-    const presignRes = await fetch(`${API_BASE_URL3}/image/upload`, {
+    const fileName = file.name;
+    const fileType = file.type;
+
+    // Step 1: Ask backend for presigned URL
+    const res = await fetch(`${API_BASE_URL3}/image/upload`, {
       method: "POST",
-      body: formData,
+      body: new URLSearchParams({
+        fileName,
+        fileType,
+        folderName,
+      }),
     });
 
-    if (!presignRes.ok) throw new Error("Failed to get presigned URL");
-    const { uploadUrl, fileUrl } = await presignRes.json();
+    if (!res.ok) throw new Error("Failed to get presigned URL");
+    const { uploadUrl, fileUrl } = await res.json();
 
-    // Step 2: Upload file to S3 using presigned URL
+    // Step 2: Upload file directly to S3
     await fetch(uploadUrl, {
       method: "PUT",
-      headers: { "Content-Type": file.type },
+      headers: { "Content-Type": fileType },
       body: file,
     });
 
-    console.log(`✅ Uploaded ${fileName} → ${fileUrl}`);
+    console.log("✅ File uploaded successfully:", fileUrl);
     return fileUrl;
   } catch (err) {
     console.error("❌ Upload error:", err);
