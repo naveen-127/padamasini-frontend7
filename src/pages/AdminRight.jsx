@@ -368,47 +368,34 @@ const uploadFileToBackend1 = async (file, folderName = "uploads") => {
 
   const fileName = file.name || `file-${Date.now()}`;
   const formData = new FormData();
-  formData.append("file", file, fileName);
+  formData.append("fileName", fileName);
   formData.append("folderName", folderName);
 
   try {
-    const res = await fetch(`${API_BASE_URL3}/image/upload`, {
+    // Step 1: Get pre-signed URL
+    const presignRes = await fetch(`${API_BASE_URL3}/image/upload`, {
       method: "POST",
       body: formData,
     });
 
-    // Always parse safely
-    const text = await res.text();
-    console.log("📤 Upload response (raw):", text);
+    if (!presignRes.ok) throw new Error("Failed to get presigned URL");
+    const { uploadUrl, fileUrl } = await presignRes.json();
 
-    if (!res.ok) {
-      console.error("❌ Upload failed:", text);
-      return null;
-    }
+    // Step 2: Upload file to S3 using presigned URL
+    await fetch(uploadUrl, {
+      method: "PUT",
+      headers: { "Content-Type": file.type },
+      body: file,
+    });
 
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch {
-      console.error("❌ Failed to parse JSON upload response:", text);
-      return null;
-    }
-
-    // ✅ Ensure backend returns 'fileUrl' (adjust if backend key is different)
-    const fileUrl = data.fileUrl || data.url;
-
-    if (!fileUrl) {
-      console.warn("⚠️ No fileUrl returned from backend:", data);
-      return null;
-    }
-
-    console.log(`✅ File uploaded successfully: ${fileName} → ${fileUrl}`);
+    console.log(`✅ Uploaded ${fileName} → ${fileUrl}`);
     return fileUrl;
   } catch (err) {
     console.error("❌ Upload error:", err);
     return null;
   }
 };
+
 
 // -----------------------------
 // 🟩 Add Subtopic Handler
