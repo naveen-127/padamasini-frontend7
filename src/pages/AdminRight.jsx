@@ -427,7 +427,7 @@ const AdminRight = () => {
       const imageUrls =
         animFiles && animFiles.length > 0
           ? (await Promise.all(
-            animFiles.map(async (img) => await uploadFileToBackend1(img, "subtopics/images"))
+                currentQuestion.map(async (img) => await uploadFileToBackend1(img, "subtopics/images"))
           )).filter(Boolean)
           : [];
 
