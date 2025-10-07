@@ -355,7 +355,6 @@ const AdminRight = () => {
       })
   };
   
-
 // -----------------------------
 // 🟩 API Base URL
 // -----------------------------
@@ -367,34 +366,36 @@ const API_BASE_URL3 = `${API_BASE_URL}/api`;
 const uploadFileToBackend1 = async (file, folderName = "uploads") => {
   if (!file) return null;
 
-  // Ensure filename exists (important for Blob objects)
   const fileName = file.name || `file-${Date.now()}`;
   const formData = new FormData();
   formData.append("file", file, fileName);
   formData.append("folderName", folderName);
 
   try {
-    const res = await fetch(`${API_BASE_URL2}/image/upload`, {
+    // ✅ use API_BASE_URL3 instead of API_BASE_URL2
+    const res = await fetch(`${API_BASE_URL3}/image/upload`, {
       method: "POST",
       body: formData,
     });
 
+    const text = await res.text();
+    console.log("📤 Upload response:", text);
+
     if (!res.ok) {
-      console.error("❌ Upload failed:", await res.text());
+      console.error("❌ Upload failed:", text);
       return null;
     }
 
-    const data = await res.json();
+    const data = JSON.parse(text);
+    const fileUrl = data.fileUrl || data.url; // ✅ support both keys
 
-    if (!data.fileUrl) {
-      console.warn("⚠️ No fileUrl returned from upload");
+    if (!fileUrl) {
+      console.warn("⚠️ No fileUrl returned from backend:", data);
       return null;
     }
 
-    console.log(`✅ File uploaded: ${fileName} -> ${data.fileUrl}`);
-    debugger; // pause to inspect uploaded URL
-
-    return data.fileUrl; // return S3 URL
+    console.log(`✅ File uploaded: ${fileName} → ${fileUrl}`);
+    return fileUrl;
   } catch (err) {
     console.error("❌ Upload error:", err);
     return null;
@@ -424,44 +425,35 @@ const handleAddSubtopic = async () => {
   try {
     console.log("📌 Starting uploads...");
 
-    // -----------------------------
     // 🔹 Upload images
-    // -----------------------------
-    const imageUrls = animFiles && animFiles.length > 0
-      ? await Promise.all(
-          animFiles.map(async (img) => {
-            const url = await uploadFileToBackend1(img, "subtopics/images");
-            if (!url) console.warn(`${img.name || "blob"} upload failed`);
-            return url;
-          })
-        )
-      : [];
+    const imageUrls =
+      animFiles && animFiles.length > 0
+        ? await Promise.all(
+            animFiles.map(async (img) => {
+              const url = await uploadFileToBackend1(img, "subtopics/images");
+              if (!url) console.warn(`${img.name || "blob"} upload failed`);
+              return url;
+            })
+          )
+        : [];
 
-    // -----------------------------
-    // 🔹 Upload audio (first available)
-    // -----------------------------
-    let audioFileIds = [];
+    // 🔹 Upload audio
+    const audioFileIds = [];
     const allAudios = [...(recordedVoiceFiles || []), ...(uploadedVoiceFiles || [])];
     if (allAudios.length > 0) {
       const audio = allAudios[0];
       const uploaded = await uploadFileToBackend1(audio, "subtopics/audios");
       if (uploaded) audioFileIds.push(uploaded);
-      else console.warn(`${audio.name || "blob"} audio upload failed`);
     }
 
-    // -----------------------------
-    // 🔹 Upload video (first available)
-    // -----------------------------
+    // 🔹 Upload video
     let aiVideoUrl = null;
     if (videoFiles && videoFiles.length > 0) {
       const video = videoFiles[0];
       aiVideoUrl = await uploadFileToBackend1(video, "subtopics/videos");
-      if (!aiVideoUrl) console.warn(`${video.name || "blob"} video upload failed`);
     }
 
-    // -----------------------------
     // 🔹 Build payload
-    // -----------------------------
     const payload = {
       parentId: selectedUnit,
       rootUnitId: rootUnitId || selectedRootId || selectedUnit,
@@ -469,18 +461,16 @@ const handleAddSubtopic = async () => {
       subjectName: subjectName || defaultSubjectName,
       unitName: subTitle.trim(),
       explanation: subDesc.trim(),
-      imageUrls: imageUrls.filter(Boolean), // only valid URLs
+      imageUrls: imageUrls.filter(Boolean),
       audioFileId: audioFileIds,
       aiVideoUrl,
     };
 
     console.log("📦 Final Payload:", payload);
-    debugger; // pause to inspect payload before sending
+    debugger;
 
-    // -----------------------------
     // 🔹 Send payload to backend
-    // -----------------------------
-    const res = await fetch(`${API_BASE_URL3}/api/addSubtopic`, {
+    const res = await fetch(`${API_BASE_URL3}/addSubtopic`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -494,9 +484,7 @@ const handleAddSubtopic = async () => {
     const result = await res.json();
     console.log("✅ Subtopic saved successfully:", result);
 
-    // -----------------------------
     // 🔹 Update local state
-    // -----------------------------
     const newSub = {
       id: result.insertedSubId || Math.random().toString(36).slice(2),
       unitName: payload.unitName,
@@ -523,7 +511,6 @@ const handleAddSubtopic = async () => {
     alert("Failed to add subtopic. Check console for details.");
   }
 };
-
 
   const updateTestsInSubtopicTree = (subtopics, targetTitle, newTest, isEdit = false, indexToEdit = null) => {
     return subtopics.map(sub => {
