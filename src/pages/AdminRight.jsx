@@ -13,10 +13,11 @@ import './AdminRight.css';
 
 
 const AdminRight = () => {
+
   const navigate = useNavigate();
   useEffect(() => {
     console.log("API Base URL:", API_BASE_URL);
-    fetch(`${API_BASE_URL}/checkSession`, {   
+    fetch(`${API_BASE_URL}/checkSession`, {
       // fetch(`https://trilokinnovations-api-prod.trilokinnovations.com/test/checkSession`,{
       // fetch(`https://test-padmasiniAdmin-api.trilokinnovations.com/checkSession`,{
       method: "GET",
@@ -60,7 +61,7 @@ const AdminRight = () => {
   const [showTestForm, setShowTestForm] = useState(false);
   const [subTitle, setSubTitle] = useState('');
   const [subDesc, setSubDesc] = useState('');
-  const [animFiles, setAnimFiles] = useState([]);
+  const [rootUnitId, setRootUnitId] = useState(null);
   const [recordedVoiceFiles, setRecordedVoiceFiles] = useState([]);
   const [uploadedVoiceFiles, setUploadedVoiceFiles] = useState([]);
   const [isRecording, setIsRecording] = useState(false);
@@ -68,6 +69,8 @@ const AdminRight = () => {
   const mediaRecorderRef = useRef(null);
   const audioChunks = useRef([]);
   const recordingIntervalRef = useRef(null);
+  const [animFiles, setAnimFiles] = useState([])
+  const [selectedUnitId, setSelectedUnitId] = useState("");
   const [lessonTestsMap, setLessonTestsMap] = useState(() => {
     const saved = localStorage.getItem(`admin_testsMap_${keyPrefix}`);
     return saved ? JSON.parse(saved) : {};
@@ -95,20 +98,25 @@ const AdminRight = () => {
   localStorage.removeItem(`admin_subtopicsMap_${keyPrefix}`);
   localStorage.removeItem(`admin_testsMap_${keyPrefix}`);
   const getAllData = () => {
-    const start = performance.now()
-    fetch(`${API_BASE_URL}/getAllUnits/${courseName}/${subjectName}/${standard}`, {
-      // fetch(`https://trilokinnovations-api-prod.trilokinnovations.com/test/getAllUnits/${courseName}/${subjectName}/${standard}`,{
+    const start = performance.now();
+    fetch(`${API_BASE_URL}/api/getAllUnits/${courseName}/${subjectName}/${standard}`, {
       method: "GET",
       credentials: "include"
     })
-      .then(resp => resp.json())
+      .then(resp => {
+        if (!resp.ok) {
+          throw new Error(`HTTP error! status: ${resp.status}`);
+        }
+        return resp.json();
+      })
       .then(data => {
-        const end1 = performance.now(); // End time
+        const end1 = performance.now();
         console.log(`Fetch for data fetch from db  ${end1 - start} ms`);
-        // console.log(data)
-        setUnitData(data)
-      }).catch(err => console.log("Session check failed:", err));
-  } 
+        setUnitData(data);
+      })
+      .catch(err => console.error("Session check failed:", err));
+  };
+
   const generateTable = (rows, cols) => {
     return Array.from({ length: rows }, () =>
       Array.from({ length: cols }, () => "")
@@ -354,186 +362,154 @@ const AdminRight = () => {
         console.log("new unit fetch error", err)
       })
   };
-  
-// -----------------------------
-// 🟩 API Base URL
-// -----------------------------
-const API_BASE_URL3 = `${API_BASE_URL}/api`;
 
-// -----------------------------
-// 🟩 Upload helper (images, audio, video)
-// -----------------------------
-const uploadFileToBackend1 = async (file, folderName = "uploads") => {
-  if (!file) return null;
+  // -----------------------------
+  // 🟩 API Base URL
+  // -----------------------------
+  const API_BASE_URL3 = `${API_BASE_URL}/api`;
 
-  try {
-    const fileName = file.name || `file-${Date.now()}`;
-    const fileType = file.type || "application/octet-stream";
+  // -----------------------------
+  // 🟩 Upload helper (Direct Upload via backend)
+  // -----------------------------
+  const uploadFileToBackend1 = async (file, folderName = "uploads") => {
+    if (!file) return null;
 
-    // Step 1️⃣ — Get presigned URL from backend
-    const res = await fetch(`${API_BASE_URL3}/image/upload`, {
-      method: "POST",
-      body: new URLSearchParams({
-        fileName,
-        fileType,
-        folderName,
-      }),
-    });
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("folderName", folderName);
 
-    if (!res.ok) throw new Error("❌ Failed to get presigned URL");
-    const { uploadUrl, fileUrl } = await res.json();
+      console.log(`📤 Uploading file → ${file.name} to folder → ${folderName}`);
 
-    // Step 2️⃣ — Upload the file directly to S3
-    const uploadResponse = await fetch(uploadUrl, {
-      method: "PUT",
-      headers: { "Content-Type": fileType },
-      body: file,
-    });
+      const res = await fetch(`${API_BASE_URL3}/image/upload`, {
+        method: "POST",
+        body: formData,
+      });
 
-    if (!uploadResponse.ok) throw new Error("❌ Upload to S3 failed");
+      if (!res.ok) throw new Error(`Upload failed with status ${res.status}`);
 
-    console.log(`✅ File uploaded to S3: ${fileUrl}`);
-    return fileUrl;
-  } catch (err) {
-    console.error("❌ Upload error:", err);
-    return null;
-  }
-};
-
-
-// -----------------------------
-// 🟩 Add Subtopic Handler
-// -----------------------------
-const handleAddSubtopic = async () => {
-  console.log("🟢 handleAddSubtopic CALLED");
-
-  if (isRecording) {
-    if (!alertShown) {
-      alertShown = true;
-      setTimeout(() => (alertShown = false), 1000);
-      alert("Stop recording before adding a subtopic.");
-    }
-    return;
-  }
-
-  if (!selectedUnit || !subTitle.trim()) {
-    alert("Select a lesson and enter a title.");
-    return;
-  }
-
-  try {
-    console.log("📌 Starting uploads...");
-
-    // -----------------------------
-    // 🖼️ Upload Images
-    // -----------------------------
-    const imageUrls =
-      currentQuestion?.image && currentQuestion.image.length > 0
-        ? (
-            await Promise.all(
-              currentQuestion.image.map(async (img) =>
-                uploadFileToBackend1(img, "subtopics/images")
-              )
-            )
-          ).filter(Boolean)
-        : [];
-
-    console.log("🖼️ Uploaded Image URLs:", imageUrls);
-
-    // -----------------------------
-    // 🔊 Upload Audio
-    // -----------------------------
-    const allAudios = [...(recordedVoiceFiles || []), ...(uploadedVoiceFiles || [])];
-    const audioFileIds =
-      allAudios.length > 0
-        ? (
-            await Promise.all(
-              allAudios.map(async (audio) =>
-                uploadFileToBackend1(audio, "subtopics/audios")
-              )
-            )
-          ).filter(Boolean)
-        : [];
-
-    console.log("🎵 Uploaded Audio URLs:", audioFileIds);
-
-    // -----------------------------
-    // 🎬 Upload Video (if any)
-    // -----------------------------
-    let aiVideoUrl = null;
-    if (videoFiles && videoFiles.length > 0) {
-      aiVideoUrl = await uploadFileToBackend1(videoFiles[0], "subtopics/videos");
-      console.log("🎬 Uploaded Video URL:", aiVideoUrl);
-    }
-
-    // -----------------------------
-    // 🧱 Build Payload
-    // -----------------------------
-    const payload = {
-      parentId: selectedUnit,
-      rootUnitId: rootUnitId || selectedRootId || selectedUnit,
-      dbname: dbName || defaultDbName,
-      subjectName: subjectName || defaultSubjectName,
-      unitName: subTitle.trim(),
-      explanation: subDesc.trim(),
-      imageUrls,
-      audioFileId: audioFileIds,
-      aiVideoUrl: aiVideoUrl || null,
-    };
-
-    console.log("📦 Final Payload (before send):", payload);
-
-    // -----------------------------
-    // 🚀 Send to Backend
-    // -----------------------------
-    const res = await fetch(`${API_BASE_URL3}/addSubtopic`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`❌ Save failed. Status: ${res.status}. Response: ${text}`);
-    }
-
-    const result = await res.json();
-    console.log("✅ Subtopic saved successfully:", result);
-
-    // -----------------------------
-    // 🧩 Update UI State
-    // -----------------------------
-    // -----------------------------
-// 🧱 Build Payload
-// -----------------------------
-console.log("🖼️ Final imageUrls before saving:", imageUrls);
-console.log("🎧 Final audioFileIds before saving:", audioFileIds);
-    const newSub = {
-      id: result.insertedSubId || Math.random().toString(36).slice(2),
-      unitName: payload.unitName,
-      explanation: payload.explanation,
-      imageUrls: payload.imageUrls,
-      audioFileId: payload.audioFileId,
-      aiVideoUrl: payload.aiVideoUrl,
-      parentId: payload.parentId,
-    };
-
-    setLessonSubtopicsMap((prev) => {
-      const current = prev[selectedUnit] || [];
-      if (editingSubtopicIndex !== null) {
-        const updated = [...current];
-        updated[editingSubtopicIndex] = newSub;
-        return { ...prev, [selectedUnit]: updated };
+      const data = await res.json();
+      if (!data.fileUrl) {
+        console.warn("⚠️ File URL missing in response — check backend response!");
+        debugger;
       }
-      return { ...prev, [selectedUnit]: [...current, newSub] };
-    });
 
-    resetExplanationForm();
-  } catch (err) {
-    console.error("❌ handleAddSubtopic error:", err);
-    alert("Failed to add subtopic. Check console for details.");
-  }
-};
+      console.log("✅ File uploaded successfully. URL:", data.fileUrl);
+      return data.fileUrl;
+    } catch (err) {
+      console.error("❌ Upload error:", err);
+      alert("File upload failed. Check console for details.");
+      return null;
+    }
+  };
+
+  // -----------------------------
+  // 🟩 Add Subtopic
+  // -----------------------------
+  const handleAddSubtopic = async () => {
+    console.log("🟢 handleAddSubtopic CALLED");
+
+    if (isRecording) {
+      if (!alertShown) {
+        alertShown = true;
+        setTimeout(() => (alertShown = false), 1000);
+        alert("Stop recording before adding a subtopic.");
+      }
+      return;
+    }
+
+    if (!selectedUnit || !subTitle.trim()) {
+      alert("Select a lesson and enter a title.");
+      return;
+    }
+
+    try {
+      console.log("📌 Starting uploads...");
+
+      // 🖼️ Upload Images
+      const imageUrls = currentQuestion?.image?.length
+        ? (await Promise.all(
+          currentQuestion.image.map(async (img, idx) => {
+            console.log(`🔄 Uploading image[${idx}] →`, img);
+            const url = await uploadFileToBackend1(img, "subtopics/images");
+            console.log(`✅ Image[${idx}] upload result:`, url);
+            return url;
+          })
+        )).filter(Boolean)
+        : [];
+
+      console.log("🖼️ Uploaded Image URLs:", imageUrls);
+
+      // 🔊 Upload Audio
+      const allAudios = [...(recordedVoiceFiles || []), ...(uploadedVoiceFiles || [])];
+      const audioFileIds = allAudios.length
+        ? (await Promise.all(
+          allAudios.map(async (audio) => uploadFileToBackend1(audio, "subtopics/audios"))
+        )).filter(Boolean)
+        : [];
+
+      console.log("🎵 Uploaded Audio URLs:", audioFileIds);
+
+      const payload = {
+        parentId: selectedSubTopicUnit?.id || lastClicked, // parent Mongo _id
+        rootUnitId: lastClicked,                           // root unit _id
+        dbname: courseName,
+        subjectName,
+        unitName: subTitle.trim(),
+        explanation: subDesc.trim(),
+        imageUrls,
+        audioFileId: audioFileIds,
+      };
+
+
+
+
+      console.log("📦 Final Payload (before send):", payload);
+
+      // 🚀 Send to Backend
+      const res = await fetch(`${API_BASE_URL3}/addSubtopic`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`❌ Save failed. Status: ${res.status}. Response: ${text}`);
+      }
+
+      const result = await res.json();
+      console.log("✅ Subtopic saved successfully:", result);
+
+      // 🧩 Update UI State
+      const newSub = {
+        id: result.insertedSubId || Math.random().toString(36).slice(2),
+        unitName: payload.unitName,
+        explanation: payload.explanation,
+        imageUrls: payload.imageUrls,
+        audioFileId: payload.audioFileId,
+        parentId: payload.parentId,
+      };
+
+      setLessonSubtopicsMap((prev) => {
+        const current = prev[selectedUnit] || [];
+        if (editingSubtopicIndex !== null) {
+          const updated = [...current];
+          updated[editingSubtopicIndex] = newSub;
+          return { ...prev, [selectedUnit]: updated };
+        }
+        return { ...prev, [selectedUnit]: [...current, newSub] };
+      });
+
+      resetExplanationForm();
+    } catch (err) {
+      console.error("❌ handleAddSubtopic error:", err);
+      alert("Failed to add subtopic. Check console for details.");
+    }
+  };
+
+
+
 
   const updateTestsInSubtopicTree = (subtopics, targetTitle, newTest, isEdit = false, indexToEdit = null) => {
     return subtopics.map(sub => {
@@ -838,7 +814,7 @@ console.log("🎧 Final audioFileIds before saving:", audioFileIds);
   //   }
   // };
 
-  
+
   // const API_BASE_URL2 = `${API_BASE_URL}/api`;
 
   // // 🔹 Upload file to S3
@@ -1030,7 +1006,7 @@ console.log("🎧 Final audioFileIds before saving:", audioFileIds);
 
 
 
- 
+
   const API_BASE_URL2 = `${API_BASE_URL}/api`;
 
   // 🔹 Upload file via backend (no CORS issues)
@@ -1684,96 +1660,100 @@ console.log("🎧 Final audioFileIds before saving:", audioFileIds);
   const [expandedUnits, setExpandedUnits] = useState({});
   const [firstClicked, setFirstClicked] = useState(null);
   const [lastClicked, setLastClicked] = useState(null);
-  const renderUnitTree = (units, parentPath = '') => (
-    <ul style={{ listStyleType: 'none', paddingLeft: '10px' }}>
-      {units.map((unit, index) => {
-        const currentPath = parentPath ? `${parentPath}/${unit.unitName}` : unit.unitName;
+  const renderUnitTree = (units, parentPath = '') => {
+    if (!Array.isArray(units)) return null; // ✅ Prevent "map is not a function" error
 
-        const isFirst = firstClicked === unit.id;
-        const isLast = lastClicked === unit.id;
+    return (
+      <ul style={{ listStyleType: 'none', paddingLeft: '10px' }}>
+        {units.map((unit, index) => {
+          const currentPath = parentPath ? `${parentPath}/${unit.unitName}` : unit.unitName;
 
-        return (
-          <li key={currentPath}>
-            <div style={{ cursor: 'pointer', userSelect: 'none' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{ marginBottom: '0px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <div style={{ flexGrow: 1 }}>
-                      <button
-                        className={unit.standard ? 'lesson-btn' : 'none'}
-                        style={{
-                          padding: unit.standard ? 'none' : '0px',
-                          margin: unit.standard ? 'none' : '0px',
-                          color: unit.standard ? undefined : 'blue',
-                          background: unit.standard ? undefined : 'none',
-                        }}
-                        onClick={() => handleUnitClick(unit, currentPath)}
-                      >
-                        📚 {unit.unitName}
-                      </button>
-                    </div>
-                    {unit.standard && (
-                      <>
+          const isFirst = firstClicked === unit.id;
+          const isLast = lastClicked === unit.id;
+
+          return (
+            <li key={currentPath}>
+              <div style={{ cursor: 'pointer', userSelect: 'none' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ marginBottom: '0px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                      <div style={{ flexGrow: 1 }}>
                         <button
-                          className="icon-btn"
-                          onClick={() => handleEditHeadLesson(unit.unitName)}
-                          title="Edit"
-                          style={{ marginLeft: '5px' }}
-                        >
-                          <Pencil size={18} />
-                        </button>
-                        <button
-                          className="icon-btn"
-                          onClick={() => handleDeleteHeadLesson(unit.unitName)}
-                          title="Delete"
-                          style={{ marginLeft: '5px' }}
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </>
-                    )}
-                  </div>
-
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                    {expandedUnits[currentPath] &&
-                      unit.test &&
-                      unit.test.map((test, idx) => (
-                        <button
-                          key={idx}
-                          onClick={() => {
-                            setTestName(test.testName);
-                            changeTestToFrontend(test);
-                            // ⬇️ Set firstClicked and lastClicked here
-                            const rootId = findRootOfUnit(unit.id, unitData);
-                            setFirstClicked(rootId);
-                            setLastClicked(unit.id);
-
-                            // ⬇️ Also update selectedSubTopicUnit to the parent unit for context
-                            setSelectedSubTopicUnit(unit);
+                          className={unit.standard ? 'lesson-btn' : 'none'}
+                          style={{
+                            padding: unit.standard ? 'none' : '0px',
+                            margin: unit.standard ? 'none' : '0px',
+                            color: unit.standard ? undefined : 'blue',
+                            background: unit.standard ? undefined : 'none',
                           }}
-                          style={{ padding: '0px', marginLeft: '0px', background: 'none', color: 'blue' }}
+                          onClick={() => handleUnitClick(unit, currentPath)}
                         >
-                          📝 {test.testName} - Assessment
+                          📚 {unit.unitName}
                         </button>
-                      ))}
+                      </div>
+                      {unit.standard && (
+                        <>
+                          <button
+                            className="icon-btn"
+                            onClick={() => handleEditHeadLesson(unit.unitName)}
+                            title="Edit"
+                            style={{ marginLeft: '5px' }}
+                          >
+                            <Pencil size={18} />
+                          </button>
+                          <button
+                            className="icon-btn"
+                            onClick={() => handleDeleteHeadLesson(unit.unitName)}
+                            title="Delete"
+                            style={{ marginLeft: '5px' }}
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </>
+                      )}
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                      {expandedUnits[currentPath] &&
+                        unit.test &&
+                        unit.test.map((test, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => {
+                              setTestName(test.testName);
+                              changeTestToFrontend(test);
+
+                              const rootId = findRootOfUnit(unit.id, unitData);
+                              setFirstClicked(rootId);
+                              setLastClicked(unit.id);
+
+                              setSelectedSubTopicUnit(unit);
+                            }}
+                            style={{ padding: '0px', marginLeft: '0px', background: 'none', color: 'blue' }}
+                          >
+                            📝 {test.testName} - Assessment
+                          </button>
+                        ))}
+                    </div>
                   </div>
                 </div>
+
+                {unit.units && unit.units.length > 0 && (
+                  <span style={{ marginLeft: '0px', color: 'gray' }}>
+                    {expandedUnits[currentPath]}
+                  </span>
+                )}
               </div>
 
-              {unit.units && unit.units.length > 0 && (
-                <span style={{ marginLeft: '0px', color: 'gray' }}>
-                  {expandedUnits[currentPath]}
-                </span>
-              )}
-            </div>
+              {unit.units && unit.units.length > 0 && expandedUnits[currentPath] &&
+                renderUnitTree(unit.units, currentPath)}
+            </li>
+          );
+        })}
+      </ul>
+    );
+  };
 
-            {unit.units && unit.units.length > 0 && expandedUnits[currentPath] &&
-              renderUnitTree(unit.units, currentPath)}
-          </li>
-        );
-      })}
-    </ul>
-  );
   const [unitPath, setUnitPath] = useState('');
 
 
@@ -2595,7 +2575,7 @@ console.log("🎧 Final audioFileIds before saving:", audioFileIds);
                   </button>
 
                 </div>
-<div className="action-buttons">
+                {/* <div className="action-buttons">
                   <button
                     onClick={() => { addNewSubTopic(); }
                       // selectedSubtopic
@@ -2620,7 +2600,38 @@ console.log("🎧 Final audioFileIds before saving:", audioFileIds);
                   >
                     Cancel
                   </button>
-                </div>
+                </div> */}
+
+                <div className="action-buttons">
+                  <button
+                    onClick={() => {
+                      if (selectedSubtopic) {
+                        handleAddChildSubtopic(selectedSubtopic); // if you're adding a child subtopic
+                      } else {
+                        handleAddSubtopic(); // main subtopic creation
+                      }
+                    }}
+                  >
+                    {editSelecetedSubUnit === 'value'
+                      ? 'Update Subtopic'
+                      : selectedSubtopic
+                        ? 'Add Child Subtopic'
+                        : 'Add Subtopic'}
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      if (isRecording) {
+                        alert("Stop recording first before adding a subtopic.");
+                        return;
+                      }
+                      resetExplanationForm();
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+
 
 
               </div>
@@ -2882,14 +2893,14 @@ console.log("🎧 Final audioFileIds before saving:", audioFileIds);
                   </div>
 
                 ))}
-              <textarea
+                <textarea
                   placeholder="Explain the correct answer"
                   rows={3}
                   value={currentQuestion.explanation || ""}
                   onChange={(e) =>
                     setCurrentQuestion((q) => ({ ...q, explanation: e.target.value }))
                   }
-                /> 
+                />
 
 
                 <button
