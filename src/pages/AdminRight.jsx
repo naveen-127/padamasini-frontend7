@@ -1158,6 +1158,76 @@ const AdminRight = () => {
     }
   };
 
+  const handleUpdateTest = async () => {
+    if (!selectedUnit) return alert("Please select a lesson before updating the test.");
+    if (!testName.trim()) return alert("Please enter a test name.");
+
+    const pass = parseInt(passPercentage);
+    if (!pass || pass <= 0 || pass > 100)
+      return alert("Pass percentage must be between 1 and 100.");
+    if (!questions || questions.length === 0) return alert("Add at least one question before updating.");
+
+    try {
+      // 🔹 Process all questions (upload images)
+      const processedQuestions = [];
+      for (const q of questions) {
+        const processed = await processQuestion(q); // reuse your existing processQuestion
+        processedQuestions.push(processed);
+      }
+
+      // 🔹 Prepare payload
+      const testData = {
+        dbname: courseName,
+        rootId: lastClicked,
+        parentId: lastClicked,
+        subjectName,
+        testName: testName.trim(),
+        unitName: selectedUnit,
+        marks: pass,
+        questionsList: processedQuestions,
+      };
+
+      console.log("🚀 Update Test Payload:", testData);
+
+      // 🔹 Encode test name to handle spaces/special characters
+      const encodedTestName = encodeURIComponent(oldQuestionForDeletion);
+
+      // 🔹 PUT request to update test
+      const url = `${API_BASE_URL}/updateQuestion/${lastClicked}/${encodedTestName}`;
+
+      const res = await fetch(url, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(testData),
+      });
+
+      if (!res.ok) {
+        const errorMsg = await res.text();
+        console.error("❌ Backend error:", errorMsg);
+        throw new Error(`Failed to update test: ${res.status}`);
+      }
+
+      const data = await res.json();
+      console.log("✅ Test updated successfully:", data);
+
+      // 🔹 Reset UI
+      getAllData();
+      setSelectedTest(null);
+      resetTestForm();
+      setCurrentQuestion({
+        rows: 1,
+        cols: 1,
+        tableData: [],
+        showMatches: false,
+        tableEditable: false,
+      });
+      setEditingTestIndex("");
+    } catch (err) {
+      console.error("⚠️ Update failed:", err);
+      alert("Failed to update test. Check console for details.");
+    }
+  };
+
 
 
 
@@ -1293,47 +1363,47 @@ const AdminRight = () => {
 
 
 
-  const handleDeleteSubtopicReal = () => {
-    const confirmed = window.confirm("Are you sure You want to Delete this whole unit")
-    if (!confirmed) return
+  const handleDeleteSubtopicReal = (subUnit) => {
+    if (!subUnit) return alert("No subunit selected");
+    const confirmed = window.confirm("Are you sure you want to delete this subtopic?");
+    if (!confirmed) return;
+
     const currentdata = {
       dbname: courseName,
       subjectName: subjectName,
       standard: standard,
+      parentId: subUnit.id,      // ✅ real subunit id
+      rootUnitId: firstClicked,  // ✅ root id
+      unitName: subUnit.unitName,
+      explanation: subUnit.explanation || ""
+    };
 
-      parentId: lastClicked,
-      rootUnitId: firstClicked,
-      unitName: subTitle,
-      explanation: subDesc
-
-    }
-
-    setSavedItems([]);
-    setCurrentQuestion(q => ({ ...q, image: null })); // reset uploaded image
-    setSubDesc("");
-    //console.log(currentdata)
-    fetch(`${API_BASE_URL}/deleteUnit`, {
-      // fetch('https://trilokinnovations-api-prod.trilokinnovations.com/test/deleteUnit',{
+    fetch(`${API_BASE_URL}/api/deleteUnit`, {
       method: 'DELETE',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(currentdata)
-    }).then(resp => {
-      // console.log(resp)
     })
+      .then(res => res.json())
       .then(data => {
-        // console.log('data updated successfully')
-        getAllData()
-        setEditSelecetedSubUnit('')
-        setSelectedSubUnit(null)
-        setSelectedUnit(null);
-        setSelectedSubTopicUnit(null)
-        setSelectedSubTopicUnitAudio([])
-        setShowExplanationForm(false)
-        setLastClicked(null)
-        setFirstClicked(null)
-      }).catch(err => console.log(err))
-  }
+        if (data.status === 'deleted') {
+          alert("Subunit deleted successfully!");
+          getAllData();
+          setEditSelecetedSubUnit('');
+          setSelectedSubUnit(null);
+          setSelectedUnit(null);
+          setSelectedSubTopicUnit(null);
+          setSelectedSubTopicUnitAudio([]);
+          setShowExplanationForm(false);
+          setLastClicked(null);
+          setFirstClicked(null);
+        } else {
+          alert("Failed to delete subunit.");
+        }
+      })
+      .catch(err => console.error("Delete error:", err));
+  };
+
 
 
   const unitSelection = (unit, path) => {
@@ -1344,12 +1414,63 @@ const AdminRight = () => {
     setSelectedTest(null);
   };
 
-  const handleSetEditSelecetedSubUnit = () => {
-    setEditSelecetedSubUnit('value')
-    setSubTitle(selectedSubUnit.unitName)
-    setSubDesc(selectedSubUnit.explanation || "")
-    setShowExplanationForm(true)
-  }
+  const handleSetEditSelecetedSubUnit = (subUnit) => {
+    if (!subUnit) return;
+    console.log("Editing subUnit:", subUnit); // debug: shows full object & id key name
+    // store the id string of the subunit you want to edit
+    setEditSelecetedSubUnit(subUnit.id || subUnit._id);
+    setSubTitle(subUnit.unitName || "");
+    setSubDesc(subUnit.explanation || "");
+    setShowExplanationForm(true);
+  };
+
+  const handleUpdateSubtopic = () => {
+    if (!editSelecetedSubUnit) {
+      alert("No subunit selected for update");
+      return;
+    }
+
+    // final payload expected by your backend (WrapperUnit)
+    const updatedData = {
+      dbname: courseName,
+      subjectName: subjectName,
+      standard: standard,
+      parentId: editSelecetedSubUnit,   // the id of the subunit we want to update
+      rootUnitId: firstClicked,         // the root document id
+      unitName: subTitle,
+      explanation: subDesc,
+      // optionally include audioFileId, imageUrls if your form edits them:
+      audioFileId: selectedSubTopicUnitAudio || [],
+      imageUrls: selectedSubTopicUnit?.imageUrls || []
+    };
+
+    console.log("Updating subtopic payload:", updatedData);
+
+    fetch(`${API_BASE_URL}/api/updateSubsection`, {
+      method: 'PUT',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updatedData)
+    })
+      .then(res => res.json())
+      .then(data => {
+        console.log("Update response:", data);
+        if (data.status === 'updated') {
+          alert("Subtopic updated successfully");
+          getAllData(); // refresh list
+          setEditSelecetedSubUnit('');
+          setShowExplanationForm(false);
+        } else {
+          alert("Failed to update subtopic");
+        }
+      })
+      .catch(err => {
+        console.error("Update error:", err);
+        alert("Update request failed. Check console & backend logs.");
+      });
+  };
+
+
   const removeServerAudio = (indexToRemove) => {
     setServerAudioFiles(prev => prev.filter((_, i) => i !== indexToRemove));
   };
@@ -1490,81 +1611,47 @@ const AdminRight = () => {
 
 
 
-  const handleAddheadUnit = () => {
+  const handleAddheadUnit = async () => {
+    if (!newUnit || !standard) return; // basic validation
 
-    if (editHeadUnit === 'value') {
-      //console.log("inside editing")
-      //   console.log(oldHeadUnitName,"    ",newUnit)
-      fetch(`${API_BASE_URL}/updateHeadUnit/${newUnit}`, {
-        // fetch(`https://trilokinnovations-api-prod.trilokinnovations.com/test/updateHeadUnit/${newUnit}`,{
-        //  fetch(`https://test-padmasiniAdmin-api.trilokinnovations.com/updateHeadUnit/${newUnit}`,{
-        method: 'PUT',
+    const isEditing = editHeadUnit === 'value';
+    const url = isEditing
+      ? `${API_BASE_URL}/api/updateHeadUnit/${newUnit}`
+      : `${API_BASE_URL}/api/addNewHeadUnit`;
+    const method = isEditing ? 'PUT' : 'POST';
+
+    const payload = {
+      dbname: courseName,
+      subjectName: subjectName,
+      unit: {
+        unitName: isEditing ? oldHeadUnitName : newUnit,
+        standard: standard,
+      },
+    };
+
+    try {
+      const resp = await fetch(url, {
+        method,
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        body: JSON.stringify(payload),
+      });
 
-          dbname: courseName,
-          subjectName: subjectName,
-          unit: {
-            unitName: oldHeadUnitName,
-            standard: standard,
+      const data = await resp.json();
 
-          }
-        })
-      }).then(resp => resp.json())
-        .then((resp) => {
-          //console.log("new unit",newUnit,"old unit",setOldHeadUnitName)
-          // console.log("edit new unit resp",resp)
-          if (resp.status === 'pass') {
-
-            getAllData()
-            setNewUnit('');
-            setOldHeadUnitName('')
-            setEditingLessonIndex(null);
-            setEditHeadUnit('')
-          }
-          setNewUnit('');
-          setOldHeadUnitName('')
-          setEditingLessonIndex(null);
-          setEditHeadUnit('')
-        }).catch(err => {
-          console.log("new unit fetch error", err)
-        })
+      if (data.status === 'pass') {
+        getAllData(); // refresh data
+      }
+    } catch (err) {
+      console.log("new unit fetch error", err);
+    } finally {
+      // reset states
+      setNewUnit('');
+      setOldHeadUnitName('');
+      setEditingLessonIndex(null);
+      setEditHeadUnit('');
     }
-    else {
-      // console.log("inside adding")
-      fetch(`${API_BASE_URL}/addNewHeadUnit`, {
-        // fetch(`https://trilokinnovations-api-prod.trilokinnovations.com/test/addNewHeadUnit`,{
-        //  fetch(`https://test-padmasiniAdmin-api.trilokinnovations.com/addNewHeadUnit`,{
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-
-          dbname: courseName,
-          subjectName: subjectName,
-          unit: {
-            unitName: newUnit,
-            standard: standard,
-
-          }
-        })
-      }).then(resp => resp.json())
-        .then((resp) => {
-
-          //  console.log("add new unit resp",resp)
-          if (resp.status === 'pass') {
-
-            getAllData()
-            setNewUnit('');
-            setEditingLessonIndex(null);
-            setEditHeadUnit('')
-          }
-        }).catch(err => {
-          console.log("new unit fetch error", err)
-        })
-    }
-  }
+  };
 
 
   const handleEditHeadLesson = (unitName) => {
@@ -1577,7 +1664,7 @@ const AdminRight = () => {
   const handleDeleteHeadLesson = (unitName) => {
     const confirmed = window.confirm("Are you sure You want to Delete this whole unit")
     if (!confirmed) return
-    fetch(`${API_BASE_URL}/deleteHeadUnit`, {
+    fetch(`${API_BASE_URL}/api/deleteHeadUnit`, {
       // fetch(`https://trilokinnovations-api-prod.trilokinnovations.com/test/deleteHeadUnit`,{
       //  fetch(`https://test-padmasiniAdmin-api.trilokinnovations.com/deleteHeadUnit`,{
       method: 'DELETE',
@@ -2180,121 +2267,155 @@ const AdminRight = () => {
                 <h4>Subtopic Preview</h4>
                 <p><strong>Title:</strong> {selectedSubTopicUnit.unitName}</p>
                 <p><strong>Description:</strong> {parseTextWithFormulas(selectedSubTopicUnit.explanation)}</p>
-                {/* <div>{parseTextWithFormulas("This is a quadratic formula: $\\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$ and here is a dollar: \\$5")}</div> */}
-                <div style={{ paddingLeft: "2px" }}>
+
+                {/* Audio Section */}
+                <div style={{ paddingLeft: "2px", marginBottom: "12px" }}>
                   <h5>Audio:</h5>
-                  {selectedSubTopicUnitAudio && Array.isArray(selectedSubTopicUnitAudio) && selectedSubTopicUnitAudio.length > 0 && (
+                  {selectedSubTopicUnitAudio && Array.isArray(selectedSubTopicUnitAudio) && selectedSubTopicUnitAudio.length > 0 ? (
                     selectedSubTopicUnitAudio.map((id, index) => {
                       const fileName = id.split('/').pop();
                       return (
                         <div key={index} style={{ marginBottom: "8px" }}>
                           <div style={{ marginBottom: "4px", fontWeight: "bold" }}>{fileName}</div>
-                          {/* <audio controls src={`http://localhost:80/getAudio/${id}/${courseName}/${subjectName}`} />  */}
-                          <audio key={index} controls src={id} />
+                          <audio controls src={id} />
                         </div>
                       );
                     })
+                  ) : (
+                    <p>No audio files</p>
                   )}
                 </div>
-                {/* <div>
-      <h5>Audio:</h5>
-      {selectedSubtopic.voices.map((audioFile, idx) => (
-        <audio
-          key={idx}
-          controls
-          src={URL.createObjectURL(audioFile)}
-          style={{ marginBottom: '10px' }}
-        />
-      ))}
-    </div> */}
-                {/* <div>
-      <h5>Videos:</h5>
-      {selectedSubtopic.animation.map((videoFile, idx) => (
-        <video
-          key={idx}
-          width="200"
-          controls
-          src={URL.createObjectURL(videoFile)}
-          style={{ marginBottom: '10px' }}
-        />
-      ))}
-      </div> */}
-                {/* NEW: Edit/Delete Buttons */}
+
+                {/* Image Section */}
+                <div style={{ paddingLeft: "2px", marginBottom: "12px" }}>
+                  <h5>Images:</h5>
+                  {selectedSubTopicUnit.imageUrls && Array.isArray(selectedSubTopicUnit.imageUrls) && selectedSubTopicUnit.imageUrls.length > 0 ? (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                      {selectedSubTopicUnit.imageUrls.map((url, idx) => (
+                        <img
+                          key={idx}
+                          src={url}
+                          alt={`Subtopic image ${idx + 1}`}
+                          style={{ width: "150px", height: "auto", borderRadius: "4px", objectFit: "cover" }}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <p>No images</p>
+                  )}
+                </div>
+
+                {/* Edit/Delete Buttons */}
                 <div className="subtopic-actions" style={{ marginTop: '15px' }}>
                   <button
                     className="icon-btn"
-                    onClick={() => {
-                      handleSetEditSelecetedSubUnit()
-                    }}
+                    onClick={() => handleSetEditSelecetedSubUnit(selectedSubUnit)}
                     title="Edit Subtopic"
                   >
                     <Pencil size={10} /> Edit
                   </button>
+
                   <button
                     className="icon-btn"
-                    onClick={() => {
-                      handleDeleteSubtopicReal()
-                    }}
+                    onClick={() => handleDeleteSubtopicReal(selectedSubUnit)}
                     title="Delete Subtopic"
                     style={{ marginLeft: '10px' }}
                   >
                     <Trash2 size={10} /> Delete
                   </button>
                 </div>
-
-
               </div>
             )}
             {selectedTest && (
               <div className="test-detail-box" style={{ marginTop: '20px' }}>
                 <h4>Test Preview</h4>
                 <p><strong>Name:</strong> {selectedTest.name}</p>
-                {/* <p><strong>Time Limit:</strong> {selectedTest.timeLimit} mins</p> */}
                 <p><strong>Pass Percentage:</strong> {selectedTest.passPercentage}%</p>
 
                 <h5><strong>Questions:</strong></h5>
                 <ol>
                   {selectedTest.questions.map((q, idx) => (
-                    <li key={idx} style={{ marginBottom: '15px' }}>
-                      <strong>{q.text}</strong>
+                    <li key={idx} style={{ marginBottom: '20px' }}>
+                      {/* Question Text */}
+                      <strong>{q.question}</strong>
+
+                      {/* Question Images */}
+                      {q.questionImages && q.questionImages[0] !== "NO_QUESTION_IMAGE" && (
+                        <div style={{ marginTop: "5px", marginBottom: "5px" }}>
+                          {q.questionImages.map((img, i) => (
+                            <img
+                              key={i}
+                              src={img}
+                              alt={`question-${i}`}
+                              style={{ maxWidth: '150px', marginRight: '5px', marginTop: '5px' }}
+                            />
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Options */}
                       <ul>
-                        {q.options.map((opt, i) => (
+                        {[1, 2, 3, 4].map(i => (
                           <li key={i} style={{ marginBottom: '5px' }}>
-                            {i === q.correctIndex ? '✅ ' : ''}
-
-                            {/* option text */}
-                            <span>{opt.text}</span>
-
-                            {/* option image (if present) */}
-                            {opt.image && (
+                            {i - 1 === q.correctIndex ? '✅ ' : ''}
+                            <span>{q[`option${i}`]}</span>
+                            {q[`option${i}Image`] && (
                               <img
-                                src={opt.image}
+                                src={q[`option${i}Image`]}
                                 alt={`option-${i}`}
-                                style={{
-                                  maxWidth: '100px',
-                                  marginLeft: '10px',
-                                  verticalAlign: 'middle'
-                                }}
+                                style={{ maxWidth: '100px', marginLeft: '10px', verticalAlign: 'middle' }}
                               />
                             )}
                           </li>
                         ))}
                       </ul>
+
+                      {/* Explanation */}
                       <p>
-                        <strong>Explanation: </strong>
-                        <em>{q.explanation}</em>
+                        <strong>Explanation:</strong> {q.explanation}
                       </p>
+
+                      {/* Solution Images */}
+                      {q.solutionImages && q.solutionImages[0] !== "NO_SOLUTION_IMAGE" && (
+                        <div style={{ marginTop: '5px', marginBottom: '5px' }}>
+                          {q.solutionImages.map((img, i) => (
+                            <img
+                              key={i}
+                              src={img}
+                              alt={`solution-${i}`}
+                              style={{ maxWidth: '150px', marginRight: '5px', marginTop: '5px' }}
+                            />
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Table Data */}
+                      {q.tableData && q.tableData.length > 0 && (
+                        <table border="1" style={{ marginTop: '5px', borderCollapse: 'collapse' }}>
+                          <tbody>
+                            {q.tableData.map((row, rIdx) => (
+                              <tr key={rIdx}>
+                                {row.map((cell, cIdx) => (
+                                  <td key={cIdx} style={{ padding: '4px', border: '1px solid #ccc' }}>
+                                    {cell}
+                                  </td>
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
                     </li>
                   ))}
                 </ol>
 
+                {/* Edit / Delete Test */}
                 <div style={{ marginTop: '10px' }}>
                   <button
                     onClick={() => {
                       setShowTestForm(true);
                       setTestName(selectedTest.name);
                       setQuestions(selectedTest.questions);
-                      // setTestTimeLimit(selectedTest.timeLimit);
                       setPassPercentage(selectedTest.passPercentage);
                       setOldQuestionForDeletion(selectedTest.name);
                       setEditingTestIndex("value");
@@ -2315,6 +2436,8 @@ const AdminRight = () => {
                 </div>
               </div>
             )}
+
+
 
             {showExplanationForm && (
               <div className="explanation-form">
@@ -2605,14 +2728,16 @@ const AdminRight = () => {
                 <div className="action-buttons">
                   <button
                     onClick={() => {
-                      if (selectedSubtopic) {
-                        handleAddChildSubtopic(selectedSubtopic); // if you're adding a child subtopic
+                      if (editSelecetedSubUnit) {
+                        handleUpdateSubtopic();
+                      } else if (selectedSubtopic) {
+                        handleAddChildSubtopic(selectedSubtopic);
                       } else {
-                        handleAddSubtopic(); // main subtopic creation
+                        handleAddSubtopic();
                       }
                     }}
                   >
-                    {editSelecetedSubUnit === 'value'
+                    {editSelecetedSubUnit
                       ? 'Update Subtopic'
                       : selectedSubtopic
                         ? 'Add Child Subtopic'
@@ -2631,6 +2756,7 @@ const AdminRight = () => {
                     Cancel
                   </button>
                 </div>
+
 
 
 
@@ -3037,14 +3163,25 @@ const AdminRight = () => {
                   </ol>
                 )}
                 <div className="action-buttons">
-                  <button onClick={handleSaveTest}>
+                  <button
+                    onClick={() => {
+                      if (editingTestIndex === 'value') {
+                        handleUpdateTest(); // call update when editing
+                      } else {
+                        handleSaveTest();   // call save when creating new
+                      }
+                    }}
+                  >
                     {editingTestIndex === 'value' ? 'Update Test' : 'Save Test'}
                   </button>
+
                   {editingTestIndex === 'value' && (
                     <button onClick={handleDeleteTest}>Delete</button>
                   )}
+
                   <button onClick={resetTestForm}>Cancel</button>
                 </div>
+
               </div>
             )}
           </div>
