@@ -67,6 +67,7 @@ const AdminRight = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const mediaRecorderRef = useRef(null);
+  const [audio, setAudio] = useState([]);
   const audioChunks = useRef([]);
   const recordingIntervalRef = useRef(null);
   const [animFiles, setAnimFiles] = useState([])
@@ -1228,6 +1229,17 @@ const AdminRight = () => {
     }
   };
 
+  const handleEditTest = (testData) => {
+    setTestName(testData.name || '');
+    setPassPercentage(testData.passPercentage || '');
+    setSelectedUnit(testData.unitName || '');
+    setQuestions(testData.questions || []); // <- default to []
+    setEditingTestIndex("value");
+    setOldQuestionForDeletion(testData.name || '');
+  };
+
+
+
 
 
 
@@ -1416,11 +1428,26 @@ const AdminRight = () => {
 
   const handleSetEditSelecetedSubUnit = (subUnit) => {
     if (!subUnit) return;
-    console.log("Editing subUnit:", subUnit); // debug: shows full object & id key name
-    // store the id string of the subunit you want to edit
+    console.log("Editing subUnit:", subUnit);
+
+    // set edit id
     setEditSelecetedSubUnit(subUnit.id || subUnit._id);
     setSubTitle(subUnit.unitName || "");
     setSubDesc(subUnit.explanation || "");
+    setRecordedVoiceFiles(subUnit.voices || "");
+
+
+
+    // 🖼️ preload images (existing)
+    setCurrentQuestion({
+      image: subUnit.imageUrls ? [...subUnit.imageUrls] : [],
+      audio: subUnit.audioFileId ? [...subUnit.audioFileId] : [],
+    });
+
+    setRecordedVoiceFiles([]);
+    setUploadedVoiceFiles([]);
+
+
     setShowExplanationForm(true);
   };
 
@@ -2326,20 +2353,17 @@ const AdminRight = () => {
                 </div>
               </div>
             )}
+
             {selectedTest && (
               <div className="test-detail-box" style={{ marginTop: '20px' }}>
                 <h4>Test Preview</h4>
                 <p><strong>Name:</strong> {selectedTest.name}</p>
                 <p><strong>Pass Percentage:</strong> {selectedTest.passPercentage}%</p>
-
                 <h5><strong>Questions:</strong></h5>
                 <ol>
                   {selectedTest.questions.map((q, idx) => (
                     <li key={idx} style={{ marginBottom: '20px' }}>
-                      {/* Question Text */}
                       <strong>{q.question}</strong>
-
-                      {/* Question Images */}
                       {q.questionImages && q.questionImages[0] !== "NO_QUESTION_IMAGE" && (
                         <div style={{ marginTop: "5px", marginBottom: "5px" }}>
                           {q.questionImages.map((img, i) => (
@@ -2352,8 +2376,6 @@ const AdminRight = () => {
                           ))}
                         </div>
                       )}
-
-                      {/* Options */}
                       <ul>
                         {[1, 2, 3, 4].map(i => (
                           <li key={i} style={{ marginBottom: '5px' }}>
@@ -2369,13 +2391,7 @@ const AdminRight = () => {
                           </li>
                         ))}
                       </ul>
-
-                      {/* Explanation */}
-                      <p>
-                        <strong>Explanation:</strong> {q.explanation}
-                      </p>
-
-                      {/* Solution Images */}
+                      <p><strong>Explanation:</strong> {q.explanation}</p>
                       {q.solutionImages && q.solutionImages[0] !== "NO_SOLUTION_IMAGE" && (
                         <div style={{ marginTop: '5px', marginBottom: '5px' }}>
                           {q.solutionImages.map((img, i) => (
@@ -2388,8 +2404,6 @@ const AdminRight = () => {
                           ))}
                         </div>
                       )}
-
-                      {/* Table Data */}
                       {q.tableData && q.tableData.length > 0 && (
                         <table border="1" style={{ marginTop: '5px', borderCollapse: 'collapse' }}>
                           <tbody>
@@ -2408,8 +2422,8 @@ const AdminRight = () => {
                     </li>
                   ))}
                 </ol>
-
-                {/* Edit / Delete Test */}
+                
+                {/* Edit / Delete Buttons */}
                 <div style={{ marginTop: '10px' }}>
                   <button
                     onClick={() => {
@@ -2418,13 +2432,12 @@ const AdminRight = () => {
                       setQuestions(selectedTest.questions);
                       setPassPercentage(selectedTest.passPercentage);
                       setOldQuestionForDeletion(selectedTest.name);
-                      setEditingTestIndex("value");
+                      setEditingTestIndex("edit");
                     }}
                   >
-                    <Pencil size={10} /> All Edit
+                    Edit All
                   </button>
-
-                  <button
+                 <button
                     onClick={() => {
                       setTestName(selectedTest.name);
                       handleDeleteTest();
@@ -2437,8 +2450,9 @@ const AdminRight = () => {
               </div>
             )}
 
-
-
+            {audio?.map(a => (
+              <AudioComponent key={a.id} data={a} />
+            ))}
             {showExplanationForm && (
               <div className="explanation-form">
                 <h4>{selectedSubtopic ? 'Add Child Subtopic' : 'Add Subtopic'}</h4>
@@ -2471,7 +2485,6 @@ const AdminRight = () => {
                 >
                   ➕ Add Description
                 </button>
-
                 {/* ✅ Hidden input for multiple images */}
                 <input
                   id="imageInput"
@@ -2488,7 +2501,6 @@ const AdminRight = () => {
                     e.target.value = ""; // reset so user can re-select same files
                   }}
                 />
-
                 {/* ✅ Preview selected images */}
                 {currentQuestion.image && currentQuestion.image.length > 0 && (
                   <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", marginTop: "10px" }}>
@@ -2511,15 +2523,21 @@ const AdminRight = () => {
                           }
                           style={{
                             position: "absolute",
-                            top: 0,
-                            right: 0,
-                            background: "red",
+                            top: "4px",
+                            right: "4px",
+                            background: "black",
                             color: "white",
                             border: "none",
                             borderRadius: "50%",
-                            width: 20,
-                            height: 20,
+                            width: "20px",
+                            height: "20px",
                             cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: "12px",
+                            lineHeight: "1",
+                            padding: "0",
                           }}
                         >
                           ✕
@@ -2528,14 +2546,14 @@ const AdminRight = () => {
                     ))}
                   </div>
                 )}
-
                 {/* Record Audio */}
                 <div className='recordaudio'>
                   <h5>Record Audio</h5>
+                  {/* 🎙️ Record / Stop Buttons */}
                   {isRecording ? (
                     <>
                       <button onClick={handleStopRecording}>Stop Recording</button>
-                      <span style={{ fontWeight: 'bold' }}>
+                      <span style={{ fontWeight: 'bold', marginLeft: '10px' }}>
                         Recording: {String(Math.floor(recordingTime / 60)).padStart(2, '0')}:
                         {String(recordingTime % 60).padStart(2, '0')}
                       </span>
@@ -2543,14 +2561,44 @@ const AdminRight = () => {
                   ) : (
                     <button onClick={handleStartRecording}>Record Audio</button>
                   )}
+                  {/* 🎧 Existing Audio from Backend (for Edit Mode) */}
+                  {Array.isArray(currentQuestion?.audio) && currentQuestion.audio.length > 0 && (
+                    <ul style={{ listStyle: 'none', padding: 0, marginTop: '10px' }}>
+                      {currentQuestion.audio.map((audio, index) => (
+                        <li key={index} style={{ marginTop: '10px' }}>
+                          <audio
+                            controls
+                            src={typeof audio === 'string' ? audio : URL.createObjectURL(audio)}
+                          />
+                          <button
+                            className="remove-button"
+                            onClick={() =>
+                              setCurrentQuestion((prev) => ({
+                                ...prev,
+                                audio: prev.audio.filter((_, i) => i !== index),
+                              }))
+                            }
+                          >
+                            Remove
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {/* 🎙️ Newly Recorded Audios */}
                   {recordedVoiceFiles.length > 0 && (
-                    <ul style={{ listStyle: 'none', padding: 0 }}>
+                    <ul style={{ listStyle: 'none', padding: 0, marginTop: '10px' }}>
                       {recordedVoiceFiles.map((file, index) => (
                         <li key={index} style={{ marginTop: '10px' }}>
                           <audio controls src={URL.createObjectURL(file)} />
-                          <button className="remove-button" onClick={() =>
-                            setRecordedVoiceFiles((prev) => prev.filter((_, i) => i !== index))
-                          }>Remove</button>
+                          <button
+                            className="remove-button"
+                            onClick={() =>
+                              setRecordedVoiceFiles((prev) => prev.filter((_, i) => i !== index))
+                            }
+                          >
+                            Remove
+                          </button>
                         </li>
                       ))}
                     </ul>
@@ -2756,10 +2804,6 @@ const AdminRight = () => {
                     Cancel
                   </button>
                 </div>
-
-
-
-
               </div>
             )}
             {/* TEST FORM */}
@@ -2975,9 +3019,6 @@ const AdminRight = () => {
                     </table>
                   </div>
                 )}
-
-
-
                 <h5>Options</h5>
                 {currentQuestion.options.map((opt, idx) => (
                   <div key={idx} className="option-row">
@@ -3075,10 +3116,6 @@ const AdminRight = () => {
                       ))}
                     </div>
                   )}
-
-
-
-
                 <button className='btn' onClick={handleAddQuestion}>Add Question</button>
                 {editingQuestionIndex !== null && (
                   <button
@@ -3102,7 +3139,7 @@ const AdminRight = () => {
                     Cancel Edit
                   </button>
                 )}
-                {questions.length > 0 && (
+                {Array.isArray(questions) && questions.length > 0 && (
                   <ol>
                     {questions.map((q, idx) => (
                       <li key={idx} style={{ marginBottom: '10px' }}>
@@ -3118,25 +3155,40 @@ const AdminRight = () => {
                             </div>
                           )}
                         </div>
+
                         <div style={{ marginTop: '5px' }}>
                           <button
                             onClick={() => {
-                              setCurrentQuestion({ ...q })
-                              setEditingQuestionIndex(idx);
-                              handleEditQuestion(idx)
-                              handleOptionImagesChange(idx)
-                              handleImageDescChange(idx)
+                              // Prefill currentQuestion safely
+                              setCurrentQuestion({
+                                ...q,
+                                options: Array.isArray(q.options)
+                                  ? q.options.map(opt => ({
+                                    text: opt?.text || "",
+                                    image: opt?.image || null,
+                                  }))
+                                  : [
+                                    { text: "", image: null },
+                                    { text: "", image: null },
+                                    { text: "", image: null },
+                                    { text: "", image: null },
+                                  ],
+                              });
 
+                              setEditingQuestionIndex(idx);
                             }}
                           >
                             Edit
                           </button>
+
                           <button
                             onClick={() => {
-                              const confirmed = window.confirm("Are you sure You want to Delete this whole unit")
-                              if (!confirmed) return
+                              const confirmed = window.confirm("Are you sure You want to Delete this whole unit?");
+                              if (!confirmed) return;
+
                               const updatedQuestions = questions.filter((_, i) => i !== idx);
                               setQuestions(updatedQuestions);
+
                               if (editingQuestionIndex === idx) {
                                 setCurrentQuestion({
                                   text: '',
@@ -3162,21 +3214,22 @@ const AdminRight = () => {
                     ))}
                   </ol>
                 )}
+
                 <div className="action-buttons">
                   <button
                     onClick={() => {
-                      if (editingTestIndex === 'value') {
-                        handleUpdateTest(); // call update when editing
+                      if (editingTestIndex === 'edit') {
+                        handleUpdateTest(); // ✅ call update when editing
                       } else {
-                        handleSaveTest();   // call save when creating new
+                        handleSaveTest();   // ✅ call save when creating new
                       }
                     }}
                   >
-                    {editingTestIndex === 'value' ? 'Update Test' : 'Save Test'}
+                    {editingTestIndex === 'edit' ? 'Update Test' : 'Save Test'}
                   </button>
 
-                  {editingTestIndex === 'value' && (
-                    <button onClick={handleDeleteTest}>Delete</button>
+                  {editingTestIndex === 'edit' && (
+                    <button onClick={handleDeleteTest}>Delete Test</button>
                   )}
 
                   <button onClick={resetTestForm}>Cancel</button>
